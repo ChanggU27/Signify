@@ -1,0 +1,15 @@
+.idea/inspectionProfiles/
+.kotlin/
+.idea/caches/
+.idea/libraries/
+.idea/modules/
+.idea/workspace.xml
+.idea/navEditor.xml
+local.properties
+*.iml
+.gradle/
+build/
+/captures
+.DS_Store
+.externalNativeBuild/
+.cxx/
