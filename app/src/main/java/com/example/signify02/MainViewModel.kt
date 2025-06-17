@@ -20,6 +20,7 @@ import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -62,6 +63,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isTextToSpeechEnabled: StateFlow<Boolean> = _isTextToSpeechEnabled
     private var tts: TextToSpeech? = null
 
+    // --- Display Sample ---
+    private val _showDisplayScreen = MutableStateFlow(false)
+    val showDisplaySample = _showDisplayScreen.asStateFlow()
+
+    // --- Alert Exit ----
+    private val _showExitDialog = MutableStateFlow(false)
+    val showExitDialog = _showExitDialog.asStateFlow()
 
     // --- Camera, Executors, and Analyzers ---
     private var camera: Camera? = null
@@ -234,10 +242,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onShowInfo() { // Renamed from onShowSignGallery
-
-    }
-
     private fun calculateBoundingBoxes(result: HandLandmarkerResult?, padding: Float = 0.05f): List<RectF> {
         val boxList = mutableListOf<RectF>()
 
@@ -284,4 +288,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         tts?.shutdown()
         Log.d(TAG, "ViewModel cleared, resources released.")
     }
+
+    fun onDisplaySample() {
+        _showDisplayScreen.value = true
+    }
+
+    fun onDismissInfo() {
+        _showDisplayScreen.value = false
+    }
+
+    fun onBackPress() {
+        _showExitDialog.value = true
+    }
+
+    fun onDismissExitDialog() {
+        _showExitDialog.value = false
+    }
+
 }

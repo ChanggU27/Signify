@@ -45,9 +45,18 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.painterResource
+import androidx.core.content.res.ResourcesCompat
 
 
 // ====================================================================================
@@ -80,13 +89,20 @@ fun ASLCameraScreen(
     isTextToSpeechEnabled: Boolean,
     onToggleTextToSpeech: () -> Unit,
     // Gallery button callback
-    onShowInfo: () -> Unit
+    onDisplaySample: () -> Unit,
+    // Back button callback
+    onBackPress: () -> Unit,
+
 ) {
+    BackHandler(enabled = true) {
+        onBackPress()}
+
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var hasCameraPermission by remember { mutableStateOf(false) }
     var showPermissionRationale by remember { mutableStateOf(false) }
     var previewView: PreviewView? by remember { mutableStateOf(null) }
+
 
     // Check initial camera permission status
     LaunchedEffect(Unit) {
@@ -102,6 +118,7 @@ fun ASLCameraScreen(
         } else {
             Log.d(TAG, "Conditions not met for camera setup: hasPermission=$hasCameraPermission, previewViewIsNull=${previewView == null}")
         }
+
     }
 
     // Main layout column
@@ -207,9 +224,10 @@ fun ASLCameraScreen(
             onToggleTorch = onToggleTorch,
             isTextToSpeechEnabled = isTextToSpeechEnabled,
             onToggleTextToSpeech = onToggleTextToSpeech,
-            onShowInfo = onShowInfo
+            onDisplaySample = onDisplaySample
         )
     }
+
 }
 
 
@@ -252,7 +270,7 @@ fun RecognizedSignBox(
     onToggleTorch: () -> Unit,
     isTextToSpeechEnabled: Boolean,
     onToggleTextToSpeech: () -> Unit,
-    onShowInfo: () -> Unit
+    onDisplaySample: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -347,7 +365,7 @@ fun RecognizedSignBox(
                     }
 
                     IconButton(
-                        onClick = onShowInfo,
+                        onClick = onDisplaySample,
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(12.dp))
@@ -355,8 +373,8 @@ fun RecognizedSignBox(
                     ) {
                         Icon(
                             imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = "Information",
-                            tint = MaterialTheme.colorScheme.onTertiary
+                            contentDescription = "Display ASL Sample",
+                            tint = Color.Black
                         )
                     }
                 }
@@ -408,6 +426,11 @@ fun HandDetectionOverlay(
     val textColor = MaterialTheme.colorScheme.onPrimary
     val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
 
+    val context = LocalContext.current
+    val yrsaTypeface = remember(context) {
+        ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght)
+    }
+
     Canvas(modifier = modifier.fillMaxSize()) {
         val canvasWidth = size.width
         val canvasHeight = size.height
@@ -419,7 +442,7 @@ fun HandDetectionOverlay(
         val textPaint = Paint().apply {
             color = textColor.toArgb()
             textSize = 40f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.CENTER
         }
         val textWidth = textPaint.measureText(tooltipText)
@@ -427,6 +450,8 @@ fun HandDetectionOverlay(
 
         var finalTooltipX = 0f
         var finalTooltipY = 0f
+
+
 
         if (firstHandBox != null) {
 
@@ -561,4 +586,79 @@ private fun DrawScope.drawHandDetectionVisuals(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DisplaySampleScreen(
+    onDismiss: () -> Unit
+) {
+    BackHandler(enabled = true) {
+        onDismiss()
+    }
+
+    val signs = ('A'..'Z').toList()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("ASL Alphabet Sample") },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 128.dp),
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            items(signs) { sign ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    val context = LocalContext.current
+                    val resourceId = context.resources.getIdentifier(
+                        "${sign.lowercase()}_test",
+                        "drawable",
+                        context.packageName
+                    )
+                    if (resourceId != 0) {
+                        Image(
+                            painter = painterResource(id = resourceId),
+                            contentDescription = "Sign for letter $sign",
+                            modifier = Modifier.size(100.dp)
+                        )
+                    }
+                    Text(text = sign.toString())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExitConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Exit Signify?") },
+        text = { Text("Are you sure you want to exit the app?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Yes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("No")
+            }
+        }
+    )
 }

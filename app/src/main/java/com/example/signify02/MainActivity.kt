@@ -26,6 +26,17 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             Signify02Theme {
+                val showExitDialog by viewModel.showExitDialog.collectAsState()
+
+                if (showExitDialog) {
+                    ExitConfirmationDialog(
+                        onConfirm = {
+                            viewModel.onDismissExitDialog()
+                            finish()
+                        },
+                        onDismiss = viewModel::onDismissExitDialog
+                    )
+                }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Collect necessary states from ViewModel
                     val predictedSign by viewModel.predictedSign.collectAsState()
@@ -37,37 +48,43 @@ class MainActivity : ComponentActivity() {
                     val landmarkResult by viewModel.handLandmarkerResult.collectAsState()
                     val isTextToSpeechEnabled by viewModel.isTextToSpeechEnabled.collectAsState()
                     val currentCameraLens by viewModel.currentCameraLens.collectAsState()
-                    val isTorchOn by viewModel.isTorchOn.collectAsState() // Re-collected
+                    val isTorchOn by viewModel.isTorchOn.collectAsState()
+                    val displaySample by viewModel.showDisplaySample.collectAsState()
 
-                    ASLCameraScreen(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .fillMaxSize(),
-                        // Sign Recognition State
-                        predictedSign = predictedSign,
-                        currentConfidence = currentConfidence,
-                        signHistory = signHistory,
-                        // Hand Detection State
-                        handBoundingBoxes = handBoundingBoxes,
-                        showLandmarks = showLandmarks,
-                        landmarkResult = landmarkResult,
-                        // Common State & Callbacks
-                        currentCameraLens = currentCameraLens,
-                        isTorchOn = isTorchOn,
-                        errorMessage = errorMessage,
-                        onClearHistory = viewModel::clearHistory,
-                        onToggleShowLandmarks = viewModel::toggleShowLandmarks,
-                        isTextToSpeechEnabled = isTextToSpeechEnabled,
-                        onToggleTextToSpeech = viewModel::toggleTextToSpeech,
-                        onToggleCamera = viewModel::toggleCamera,
-                        onToggleTorch = viewModel::toggleTorch,
-                        onShowInfo = viewModel::onShowInfo,
-                        requestCameraPermission = { onPermissionResult ->
-                            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            permissionResultCallback = onPermissionResult
-                        },
-                        setupCamera = viewModel::setupCameraAndHandTracking
-                    )
+                    if (displaySample) {
+                        DisplaySampleScreen(onDismiss = viewModel::onDismissInfo)
+                    } else {
+                        ASLCameraScreen(
+                            modifier = Modifier
+                                .padding(innerPadding)
+                                .fillMaxSize(),
+                            // Sign Recognition State
+                            predictedSign = predictedSign,
+                            currentConfidence = currentConfidence,
+                            signHistory = signHistory,
+                            // Hand Detection State
+                            handBoundingBoxes = handBoundingBoxes,
+                            showLandmarks = showLandmarks,
+                            landmarkResult = landmarkResult,
+                            // Common State & Callbacks
+                            currentCameraLens = currentCameraLens,
+                            isTorchOn = isTorchOn,
+                            errorMessage = errorMessage,
+                            onClearHistory = viewModel::clearHistory,
+                            onToggleShowLandmarks = viewModel::toggleShowLandmarks,
+                            isTextToSpeechEnabled = isTextToSpeechEnabled,
+                            onToggleTextToSpeech = viewModel::toggleTextToSpeech,
+                            onToggleCamera = viewModel::toggleCamera,
+                            onToggleTorch = viewModel::toggleTorch,
+                            onDisplaySample = viewModel::onDisplaySample,
+                            onBackPress = viewModel::onBackPress,
+                            requestCameraPermission = { onPermissionResult ->
+                                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                permissionResultCallback = onPermissionResult
+                            },
+                            setupCamera = viewModel::setupCameraAndHandTracking
+                        )
+                    }
                 }
             }
         }
