@@ -34,11 +34,11 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6650a4),
+    primary = Color(0xFFcccad9),
     secondary = Color(0xFF625b71),
     tertiary = Color(0xFF7D5260),
     error = Color(0xFFA32727),
-    background = Color(0xFFFFFBFE),
+    background = Color.White,
     surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,
     onSecondary = Color.White,
@@ -102,3 +102,4 @@ fun Signify02Theme(
         content = content
     )
 }
+

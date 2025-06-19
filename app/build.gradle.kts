@@ -86,4 +86,7 @@ dependencies {
     //Hand Landmark
     implementation(libs.tasks.vision)
 
+    // System UI Controller
+    implementation(libs.accompanist.systemuicontroller)
+
 }

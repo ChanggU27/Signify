@@ -1,4 +1,5 @@
 [versions]
+accompanistSystemuicontroller = "0.28.0"
 agp = "8.9.2"
 cameraCore = "1.5.0-alpha06"
 coreSplashscreen = "1.0.1"
@@ -21,6 +22,7 @@ media3CommonKtx = "1.6.1"
 
 
 [libraries]
+accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCore" }
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraCore" }
 androidx-camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "cameraCore" }

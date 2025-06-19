@@ -1,7 +1,9 @@
 package com.example.signify02
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.RectF
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -32,6 +34,13 @@ import kotlin.math.min
 // --- ViewModel (State Management & Logic) ---
 // ====================================================================================
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    // Context from the AndroidViewModel
+    @SuppressLint("StaticFieldLeak")
+    private val context: Context = application.applicationContext
+
+    // --- State for camera permission
+    private val _hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(context))
+    val hasCameraPermission: StateFlow<Boolean> = _hasCameraPermission.asStateFlow()
 
     // --- State Flows for Sign Recognition ---
     private val _predicteSign = MutableStateFlow("")
@@ -71,6 +80,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showExitDialog = MutableStateFlow(false)
     val showExitDialog = _showExitDialog.asStateFlow()
 
+    // --- Alert Start ---
+    private val _showInitialInfoDialog = MutableStateFlow(true)
+    val showInitialInfoDialog = _showInitialInfoDialog.asStateFlow()
+
     // --- Camera, Executors, and Analyzers ---
     private var camera: Camera? = null
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -80,17 +93,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // Initialize TextToSpeech
         tts = TextToSpeech(getApplication()) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val result = tts?.setLanguage(Locale.US)
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e(TAG, "TTS Language not supported.")
-                    _errorMessage.value = "Text-to-speech language not supported."
-                }
-            } else {
-                Log.e(TAG, "TTS Initialization failed.")
-                _errorMessage.value = "Text-to-speech initialization failed."
-            }
         }
+    }
+
+    // Updates permission status from Activity
+    fun updateCameraPermissionStatus(isGranted: Boolean) {
+        _hasCameraPermission.value = isGranted
+    }
+
+    fun onDismissInitialInfoDialog() {
+        _showInitialInfoDialog.value = false
+    }
+
+    private fun checkCameraPermissionStatus(context: Context): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     /**

@@ -1,8 +1,6 @@
 package com.example.signify02
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.RectF
 import android.util.Log
 import androidx.camera.core.CameraSelector
@@ -34,20 +32,17 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -57,15 +52,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.painterResource
 import androidx.core.content.res.ResourcesCompat
-
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.window.Dialog
 
 // ====================================================================================
 // --- Composable UI Layer ---
 // ====================================================================================
 
 @Composable
-fun ASLCameraScreen(
+fun SignifyCameraScreen(
     modifier: Modifier = Modifier,
+    //Camera Permission
+    hasCameraPermission: Boolean,
     // Sign Recognition State
     predictedSign: String,
     currentConfidence: Float,
@@ -99,17 +99,8 @@ fun ASLCameraScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var hasCameraPermission by remember { mutableStateOf(false) }
-    var showPermissionRationale by remember { mutableStateOf(false) }
+    var showPermissionRationale by remember { mutableStateOf(!hasCameraPermission) }
     var previewView: PreviewView? by remember { mutableStateOf(null) }
-
-
-    // Check initial camera permission status
-    LaunchedEffect(Unit) {
-        hasCameraPermission = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
-    }
 
     LaunchedEffect(hasCameraPermission, previewView, currentCameraLens) {
         if (hasCameraPermission && previewView != null) {
@@ -121,7 +112,8 @@ fun ASLCameraScreen(
 
     }
 
-    // Main layout column
+
+// Main layout column
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -153,43 +145,85 @@ fun ASLCameraScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Overlay for camera controls
-                Box(
+                // Top bar content
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(horizontal = 34.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Camera Toggle Button
-                        IconButton(
-                            onClick = onToggleCamera,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
-                                .padding(4.dp)
-                        ) {
+                    // Left: Kebab Menu
+                    Box {
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        IconButton(onClick = { menuExpanded = true }) {
                             Icon(
-                                imageVector = Icons.Filled.Cameraswitch,
-                                contentDescription = if (currentCameraLens == CameraSelector.LENS_FACING_BACK) "Switch to Front Camera" else "Switch to Back Camera",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("ASL Alphabet Sample", fontFamily = Yrsa) },
+                                onClick = {
+                                    onDisplaySample()
+                                    menuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Settings", fontFamily = Yrsa) },
+                                onClick = {
+                                    // TODO: Add navigation to a Settings screen
+                                    menuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("About", fontFamily = Yrsa) },
+                                onClick = {
+                                    // TODO: Add navigation to an About screen
+                                    menuExpanded = false
+                                }
                             )
                         }
                     }
+
+                    // Center: Title
+                    Text(
+                        text = "Signify",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = Yrsa,
+                        style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.7f), Offset(4f, 4f), 8f))
+                    )
+
+                    // Right: Camera Switch
+                    IconButton(
+                        onClick = onToggleCamera,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .padding(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Cameraswitch,
+                            contentDescription = if (currentCameraLens == CameraSelector.LENS_FACING_BACK) "Switch to Front Camera" else "Switch to Back Camera",
+                            tint = Color.White
+                        )
+                    }
                 }
-
-
             } else {
                 // Show the permission request UI
                 PermissionRequestUI(
                     showRationale = showPermissionRationale,
                     onRequestPermission = {
                         requestCameraPermission { isGranted ->
-                            hasCameraPermission = isGranted
+
                             showPermissionRationale = !isGranted
                             Log.d(TAG, "Permission result: $isGranted")
                         }
@@ -216,6 +250,7 @@ fun ASLCameraScreen(
         }
 
         RecognizedSignBox(
+            modifier = Modifier.navigationBarsPadding(),
             signHistory = signHistory,
             isTorchOn = isTorchOn,
             showLandmarks = showLandmarks,
@@ -224,12 +259,9 @@ fun ASLCameraScreen(
             onToggleTorch = onToggleTorch,
             isTextToSpeechEnabled = isTextToSpeechEnabled,
             onToggleTextToSpeech = onToggleTextToSpeech,
-            onDisplaySample = onDisplaySample
         )
     }
-
 }
-
 
 @Composable
 fun PermissionRequestUI(
@@ -260,8 +292,10 @@ fun PermissionRequestUI(
 }
 
 
+
 @Composable
 fun RecognizedSignBox(
+    modifier: Modifier = Modifier,
     signHistory: List<String>,
     isTorchOn: Boolean,
     showLandmarks: Boolean,
@@ -270,15 +304,15 @@ fun RecognizedSignBox(
     onToggleTorch: () -> Unit,
     isTextToSpeechEnabled: Boolean,
     onToggleTextToSpeech: () -> Unit,
-    onDisplaySample: () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(0.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(Color.Transparent)
             .padding(16.dp)
+
     ) {
         Column {
             // Top row for title and action icons
@@ -287,13 +321,7 @@ fun RecognizedSignBox(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Signify",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 24.sp,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.primary
-                )
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -308,7 +336,7 @@ fun RecognizedSignBox(
                             .padding(4.dp)
                     ) {
                         Icon(
-                            imageVector = if (isTorchOn) Icons.Filled.HighlightOff else Icons.Filled.Highlight,
+                            imageVector = if (isTorchOn) Icons.Filled.FlashlightOn else Icons.Filled.FlashlightOff,
                             contentDescription = "Toggle Flashlight",
                             tint = if (isTorchOn) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current // Changed to MaterialTheme.colorScheme.onSecondary
                         )
@@ -362,20 +390,6 @@ fun RecognizedSignBox(
                                 tint = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
-                    }
-
-                    IconButton(
-                        onClick = onDisplaySample,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = "Display ASL Sample",
-                            tint = Color.Black
-                        )
                     }
                 }
             }
@@ -599,6 +613,39 @@ fun DisplaySampleScreen(
 
     val signs = ('A'..'Z').toList()
 
+    // Create a map to store your drawable resource IDs
+    // This is created once and remembered across recompositions
+    val signDrawables = remember {
+        mapOf(
+            'A' to R.drawable.a_test,
+            'B' to R.drawable.b_test,
+            'C' to R.drawable.c_test,
+            'D' to R.drawable.d_test,
+            'E' to R.drawable.e_test,
+            'F' to R.drawable.f_test,
+            'G' to R.drawable.g_test,
+            'H' to R.drawable.h_test,
+            'I' to R.drawable.i_test,
+            'J' to R.drawable.j_test,
+            'K' to R.drawable.k_test,
+            'L' to R.drawable.l_test,
+            'M' to R.drawable.m_test,
+            'N' to R.drawable.n_test,
+            'O' to R.drawable.o_test,
+            'P' to R.drawable.p_test,
+            'Q' to R.drawable.q_test,
+            'R' to R.drawable.r_test,
+            'S' to R.drawable.s_test,
+            'T' to R.drawable.t_test,
+            'U' to R.drawable.u_test,
+            'V' to R.drawable.v_test,
+            'W' to R.drawable.w_test,
+            'X' to R.drawable.x_test,
+            'Y' to R.drawable.y_test,
+            'Z' to R.drawable.z_test,
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -621,18 +668,16 @@ fun DisplaySampleScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(8.dp)
                 ) {
-                    val context = LocalContext.current
-                    val resourceId = context.resources.getIdentifier(
-                        "${sign.lowercase()}_test",
-                        "drawable",
-                        context.packageName
-                    )
-                    if (resourceId != 0) {
+                    val resourceId = signDrawables[sign]
+                    if (resourceId != null) {
                         Image(
                             painter = painterResource(id = resourceId),
                             contentDescription = "Sign for letter $sign",
                             modifier = Modifier.size(100.dp)
                         )
+                    } else {
+                        Text(text = "No image for $sign")
+                        Log.e(TAG, "Drawable for sign '${sign}' not found in map.")
                     }
                     Text(text = sign.toString())
                 }
@@ -642,23 +687,82 @@ fun DisplaySampleScreen(
 }
 
 @Composable
+fun SignifyDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    text: String,
+    confirmButtonText: String,
+    onConfirm: () -> Unit,
+    dismissButtonText: String? = null,
+    onDismiss: (() -> Unit)? = null
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = Yrsa),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Yrsa),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (dismissButtonText != null && onDismiss != null) {
+                        TextButton(onClick = onDismiss) {
+                            Text(dismissButtonText, fontFamily = Yrsa)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    TextButton(onClick = onConfirm) {
+                        Text(confirmButtonText, fontFamily = Yrsa)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
 fun ExitConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    SignifyDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Exit Signify?") },
-        text = { Text("Are you sure you want to exit the app?") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Yes")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("No")
-            }
-        }
+        title = "Exit Signify?",
+        text = "Are you sure you want to exit the app?",
+        confirmButtonText = "Yes",
+        onConfirm = onConfirm,
+        dismissButtonText = "No",
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun InitialInfoDialog(
+    onDismiss: () -> Unit
+) {
+    SignifyDialog(
+        onDismissRequest = onDismiss,
+        title = "Welcome to Signify!",
+        text = "To achieve accurate results, please use a plain, well-lit background.",
+        confirmButtonText = "Got it!",
+        onConfirm = onDismiss
     )
 }
