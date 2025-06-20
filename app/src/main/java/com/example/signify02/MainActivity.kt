@@ -3,6 +3,7 @@ package com.example.signify02
 import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -39,6 +40,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    BackHandler(enabled = true) {
+                        viewModel.onBackPress()
+                    }
+
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
                     val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
                     val showAboutScreen by viewModel.showAboutScreen.collectAsState()
@@ -114,7 +119,6 @@ class MainActivity : ComponentActivity() {
                                     onDisplaySample = viewModel::onDisplaySample,
                                     onStartPracticeMode = viewModel::onStartPracticeMode,
                                     onDisplayAbout = viewModel::onDisplayAbout,
-                                    onBackPress = viewModel::onBackPress,
                                     requestCameraPermission = { onPermissionResult ->
                                         requestPermissionLauncher.launch(Manifest.permission.CAMERA)
                                         permissionResultCallback = { isGranted ->

@@ -99,16 +99,12 @@ fun SignifyCameraScreen(
     onToggleTextToSpeech: () -> Unit,
     // Gallery button callback
     onDisplaySample: () -> Unit,
-    // Back button callback
-    onBackPress: () -> Unit,
     // Practice Mode
     onStartPracticeMode: () -> Unit,
     // About Screen
     onDisplayAbout: () -> Unit,
 
 ) {
-    BackHandler(enabled = true) {
-        onBackPress()}
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
