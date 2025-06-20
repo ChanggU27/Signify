@@ -30,14 +30,14 @@ private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFD0BCFF),
     secondary = Color(0xFFCCC2DC),
     tertiary = Color(0xFFEFB8C8),
-    error = Color(0xFFA32727)
+    error = Color(0xff960c18)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFFcccad9),
+    primary = Color.Black,
     secondary = Color(0xFF625b71),
     tertiary = Color(0xFF7D5260),
-    error = Color(0xFFA32727),
+    error = Color(0xff960c18),
     background = Color.White,
     surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,

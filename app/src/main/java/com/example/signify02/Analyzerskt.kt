@@ -94,7 +94,7 @@ class SignDetectionAnalyzer(
         }
     }
 
-    @SuppressLint("UnsafeOptInUsageError") // For imageProxy.image access
+    @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(imageProxy: ImageProxy) {
         if (!isInitialized || tflite == null) {
             imageProxy.close(); return
@@ -118,14 +118,14 @@ class SignDetectionAnalyzer(
                 // Crop the image to the detected hand region before analysis
                 val croppedBitmap = cropBitmapWithBoundingBox(fullBitmap, firstHandBox)
                 if (croppedBitmap != null) {
-                    bitmapToProcess = croppedBitmap // Use the cropped version
+                    bitmapToProcess = croppedBitmap
                 } else {
                     Log.w(TAG, "Sign Analyzer: Cropping failed.")
-                    onSignDetected("", 0f); imageProxy.close(); return // Skip if crop fails
+                    onSignDetected("", 0f); imageProxy.close(); return
                 }
             } else {
                 Log.w(TAG, "Sign Analyzer: Failed to get bitmap.")
-                onSignDetected("", 0f); imageProxy.close(); return // Skip if bitmap fails
+                onSignDetected("", 0f); imageProxy.close(); return
             }
 
             // --- Run inference on the cropped image ---
@@ -157,7 +157,6 @@ class SignDetectionAnalyzer(
         }
     }
 
-    /** Closes the TFLite interpreter to release native resources. */
     fun close() {
         tflite?.close()
         tflite = null
@@ -193,17 +192,16 @@ class HandTrackingAnalyzer(
         }
     }
 
-    /** Configures and creates the MediaPipe HandLandmarker instance. */
+
     private fun setupHandLandmarker() {
         try {
-            // Basic options point to the model file
             val baseOptionsBuilder = MpBaseOptions.builder()
                 .setModelAssetPath(HAND_LANDMARKER_MODEL_FILE)
 
             // Specific options for HandLandmarker
             val optionsBuilder = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(baseOptionsBuilder.build())
-                .setRunningMode(RunningMode.LIVE_STREAM) // Essential for processing camera frames
+                .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumHands(1) // Max hands to detect
                 .setMinHandDetectionConfidence(0.5f)
                 .setMinTrackingConfidence(0.5f)
@@ -255,7 +253,6 @@ class HandTrackingAnalyzer(
         }
     }
 
-    /** Closes the HandLandmarker instance to release native resources. */
     fun close() {
         handLandmarker?.close()
         handLandmarker = null

@@ -61,6 +61,15 @@ import androidx.compose.ui.window.Dialog
 // --- Composable UI Layer ---
 // ====================================================================================
 
+val HAND_CONNECTIONS = listOf(
+    Pair(0, 1), Pair(1, 2), Pair(2, 3), Pair(3, 4),         // Thumb
+    Pair(5, 6), Pair(6, 7), Pair(7, 8),                     // Index finger
+    Pair(9, 10), Pair(10, 11), Pair(11, 12),                // Middle finger
+    Pair(13, 14), Pair(14, 15), Pair(15, 16),               // Ring finger
+    Pair(17, 18), Pair(18, 19), Pair(19, 20),               // Pinky
+    Pair(0, 5), Pair(5, 9), Pair(9, 13), Pair(13, 17), Pair(0, 17) // Palm
+)
+
 @Composable
 fun SignifyCameraScreen(
     modifier: Modifier = Modifier,
@@ -92,6 +101,10 @@ fun SignifyCameraScreen(
     onDisplaySample: () -> Unit,
     // Back button callback
     onBackPress: () -> Unit,
+    // Practice Mode
+    onStartPracticeMode: () -> Unit,
+    // About Screen
+    onDisplayAbout: () -> Unit,
 
 ) {
     BackHandler(enabled = true) {
@@ -118,10 +131,16 @@ fun SignifyCameraScreen(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Box to hold the camera preview, hand overlay, or permission request UI
+        val cameraPreviewShape = RoundedCornerShape(
+            bottomStart = 24.dp,
+            bottomEnd = 24.dp
+        )
+
         Box(modifier = Modifier
             .weight(1f)
-            .fillMaxWidth()) {
+            .fillMaxWidth()
+            .clip(cameraPreviewShape)
+        ) {
             if (hasCameraPermission) {
                 AndroidView(
                     factory = { ctx ->
@@ -170,23 +189,23 @@ fun SignifyCameraScreen(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("ASL Alphabet Sample", fontFamily = Yrsa) },
+                                text = { Text("ASL Alphabet Samples", fontFamily = Yrsa) },
                                 onClick = {
                                     onDisplaySample()
                                     menuExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Settings", fontFamily = Yrsa) },
+                                text = { Text("Practice Mode", fontFamily = Yrsa) },
                                 onClick = {
-                                    // TODO: Add navigation to a Settings screen
+                                    onStartPracticeMode()
                                     menuExpanded = false
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("About", fontFamily = Yrsa) },
                                 onClick = {
-                                    // TODO: Add navigation to an About screen
+                                    onDisplayAbout()
                                     menuExpanded = false
                                 }
                             )
@@ -319,7 +338,8 @@ fun RecognizedSignBox(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Center,
+
             ) {
 
                 Row(
@@ -401,8 +421,12 @@ fun RecognizedSignBox(
                     .fillMaxWidth()
                     .heightIn(max = 100.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .border(
+                        1.dp,
+                        Color.Black,
+                        RoundedCornerShape(8.dp)
+                    )
                     .padding(12.dp)
             ) {
                 Column(
@@ -414,7 +438,7 @@ fun RecognizedSignBox(
                         text = "Sign History: ${signHistory.joinToString(" ")}",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = Color.Black
                     )
                 }
             }
@@ -430,172 +454,135 @@ fun HandDetectionOverlay(
     showLandmarks: Boolean,
     landmarkResult: HandLandmarkerResult?,
     currentCameraLens: Int,
-    modifier: Modifier = Modifier,
-    overlayColor: Color = Color.Black.copy(alpha = 0.6f),
-    landmarkColor: Color = Color.White
+    modifier: Modifier = Modifier
 ) {
-    val lowConfidenceColor = MaterialTheme.colorScheme.error
-    val highConfidenceColor = MaterialTheme.colorScheme.primary
-
-    val textColor = MaterialTheme.colorScheme.onPrimary
-    val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-
     val context = LocalContext.current
     val yrsaTypeface = remember(context) {
         ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght)
     }
 
+    val landmarkColor = Color.Red
+    val connectionColor = Color.White
+    val textColor = Color.White
+    val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+    val lowConfidenceColor = MaterialTheme.colorScheme.error
+    val highConfidenceColor = Color.White
+
     Canvas(modifier = modifier.fillMaxSize()) {
         val canvasWidth = size.width
         val canvasHeight = size.height
-
         val firstHandBox = normalizedBoundingBoxes.firstOrNull()
 
-        // Calculate tooltip position
-        val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()}%)"
-        val textPaint = Paint().apply {
-            color = textColor.toArgb()
-            textSize = 40f
-            typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-        }
-        val textWidth = textPaint.measureText(tooltipText)
-        val textHeight = textPaint.descent() - textPaint.ascent()
-
-        var finalTooltipX = 0f
-        var finalTooltipY = 0f
-
-
-
-        if (firstHandBox != null) {
-
-            finalTooltipX = if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
-                (1f - firstHandBox.centerX()) * canvasWidth
-            } else {
-                firstHandBox.centerX() * canvasWidth
-            }
-            finalTooltipY = (firstHandBox.top * canvasHeight) - textHeight / 2 - 30f
-
-            // Ensure tooltip stays within bounds
-            finalTooltipX = finalTooltipX.coerceIn(textWidth / 2 + 20f, canvasWidth - textWidth / 2 - 20f)
-            finalTooltipY = finalTooltipY.coerceIn(textHeight + 20f, canvasHeight - 20f)
-        }
-
-        // Conditional scaling for bounding boxes and landmarks only
         if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
             scale(scaleX = -1f, scaleY = 1f, pivot = Offset(canvasWidth / 2f, canvasHeight / 2f)) {
-                // Drawing of bounding boxes and landmarks (within flipped coordinate system)
                 drawHandDetectionVisuals(
-                    normalizedBoundingBoxes,
-                    predictedSignConfidence,
-                    showLandmarks,
-                    landmarkResult,
-                    lowConfidenceColor,
-                    highConfidenceColor,
-                    overlayColor,
-                    landmarkColor,
-                    canvasWidth,
-                    canvasHeight
+                    normalizedBoundingBoxes, predictedSignConfidence, showLandmarks,
+                    landmarkResult, canvasWidth, canvasHeight, landmarkColor,
+                    connectionColor, lowConfidenceColor, highConfidenceColor
                 )
             }
         } else {
-            // Drawing of bounding boxes and landmarks (normal coordinate system)
             drawHandDetectionVisuals(
-                normalizedBoundingBoxes,
-                predictedSignConfidence,
-                showLandmarks,
-                landmarkResult,
-                lowConfidenceColor,
-                highConfidenceColor,
-                overlayColor,
-                landmarkColor,
-                canvasWidth,
-                canvasHeight
+                normalizedBoundingBoxes, predictedSignConfidence, showLandmarks,
+                landmarkResult, canvasWidth, canvasHeight, landmarkColor,
+                connectionColor, lowConfidenceColor, highConfidenceColor
             )
         }
 
         if (predictedSign.isNotEmpty() && predictedSignConfidence > 0 && firstHandBox != null) {
+            val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()}%)"
+            val textPaint = Paint().apply {
+                color = textColor.toArgb()
+                textSize = 40f
+                typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
+                textAlign = Paint.Align.CENTER
+            }
+            val textWidth = textPaint.measureText(tooltipText)
+            val textHeight = textPaint.descent() - textPaint.ascent()
+            var finalTooltipX = if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
+                (1f - firstHandBox.centerX()) * canvasWidth
+            } else {
+                firstHandBox.centerX() * canvasWidth
+            }
+            var finalTooltipY = (firstHandBox.top * canvasHeight) - textHeight / 2 - 30f
+            finalTooltipX = finalTooltipX.coerceIn(textWidth / 2 + 20f, canvasWidth - textWidth / 2 - 20f)
+            finalTooltipY = finalTooltipY.coerceIn(textHeight + 20f, canvasHeight - 20f)
+
             drawContext.canvas.nativeCanvas.drawRoundRect(
                 finalTooltipX - textWidth / 2 - 20f,
                 finalTooltipY - textHeight - 10f,
                 finalTooltipX + textWidth / 2 + 20f,
-                finalTooltipY + 10f,
-                20f, // X-radius for the round corners
-                20f, // Y-radius for the round corners
+                finalTooltipY + 25f,
+                20f, 20f,
                 Paint().apply {
                     color = textBackgroundColor.toArgb()
                     style = Paint.Style.FILL
                 }
             )
-
-            drawContext.canvas.nativeCanvas.drawText(
-                tooltipText,
-                finalTooltipX,
-                finalTooltipY,
-                textPaint
-            )
+            drawContext.canvas.nativeCanvas.drawText(tooltipText, finalTooltipX, finalTooltipY, textPaint)
         }
     }
 }
 
-// Helper function to encapsulate bounding box and landmark drawing logic
 private fun DrawScope.drawHandDetectionVisuals(
     normalizedBoundingBoxes: List<RectF>,
     predictedSignConfidence: Float,
     showLandmarks: Boolean,
     landmarkResult: HandLandmarkerResult?,
-    lowConfidenceColor: Color,
-    highConfidenceColor: Color,
-    overlayColor: Color,
-    landmarkColor: Color,
     canvasWidth: Float,
-    canvasHeight: Float
+    canvasHeight: Float,
+    landmarkColor: Color,
+    connectionColor: Color,
+    lowConfidenceColor: Color,
+    highConfidenceColor: Color
 ) {
+    val overlayColor: Color = Color.Black.copy(alpha = 0.6f)
     val firstHandBox = normalizedBoundingBoxes.firstOrNull()
 
-    // --- Draw Dimmed Background (If hand detected) ---
+    // Dim the background
     if (firstHandBox != null) {
         val left = (firstHandBox.left * canvasWidth).coerceIn(0f, canvasWidth)
         val top = (firstHandBox.top * canvasHeight).coerceIn(0f, canvasHeight)
         val right = (firstHandBox.right * canvasWidth).coerceIn(left, canvasWidth)
         val bottom = (firstHandBox.bottom * canvasHeight).coerceIn(top, canvasHeight)
-
         drawRect(color = overlayColor, topLeft = Offset(0f, 0f), size = ComposeSize(canvasWidth, top), style = Fill)
         drawRect(color = overlayColor, topLeft = Offset(0f, bottom), size = ComposeSize(canvasWidth, canvasHeight - bottom), style = Fill)
         drawRect(color = overlayColor, topLeft = Offset(0f, top), size = ComposeSize(left, bottom - top), style = Fill)
         drawRect(color = overlayColor, topLeft = Offset(right, top), size = ComposeSize(canvasWidth - right, bottom - top), style = Fill)
     }
 
-    // --- Draw Bounding Box Outline (If hand detected) ---
+    // Draw Bounding Box Outline
     if (firstHandBox != null) {
-        val outlineColor = when {
-            predictedSignConfidence < 0.70f -> lowConfidenceColor
-            else -> highConfidenceColor
-        }
+        // Use the color passed in as a parameter
+        val outlineColor = if (predictedSignConfidence < 0.70f) lowConfidenceColor else highConfidenceColor
         normalizedBoundingBoxes.forEach { box ->
-            val boxLeft = (box.left * canvasWidth).coerceIn(0f, canvasWidth)
-            val boxTop = (box.top * canvasHeight).coerceIn(0f, canvasHeight)
-            val boxRight = (box.right * canvasWidth).coerceIn(boxLeft, canvasWidth)
-            val boxBottom = (box.bottom * canvasHeight).coerceIn(boxTop, canvasHeight)
             drawRect(
                 color = outlineColor,
-                topLeft = Offset(boxLeft, boxTop),
-                size = ComposeSize(boxRight - boxLeft, boxBottom - boxTop),
+                topLeft = Offset(box.left * canvasWidth, box.top * canvasHeight),
+                size = ComposeSize((box.right - box.left) * canvasWidth, (box.bottom - box.top) * canvasHeight),
                 style = Stroke(width = 6f)
             )
         }
     }
 
-    // Draw Hand Landmarks
+    // Draw Hand Landmarks and Connections
     if (showLandmarks && landmarkResult != null) {
         landmarkResult.landmarks().forEach { handLandmarks ->
+            HAND_CONNECTIONS.forEach {
+                val start = handLandmarks[it.first]
+                val end = handLandmarks[it.second]
+                drawLine(
+                    color = connectionColor,
+                    start = Offset(start.x() * canvasWidth, start.y() * canvasHeight),
+                    end = Offset(end.x() * canvasWidth, end.y() * canvasHeight),
+                    strokeWidth = 4f
+                )
+            }
             handLandmarks.forEach { landmark ->
-                val x = landmark.x() * canvasWidth
-                val y = landmark.y() * canvasHeight
                 drawCircle(
                     color = landmarkColor,
-                    radius = 8f,
-                    center = Offset(x, y)
+                    radius = 6f,
+                    center = Offset(landmark.x() * canvasWidth, landmark.y() * canvasHeight)
                 )
             }
         }
@@ -613,8 +600,6 @@ fun DisplaySampleScreen(
 
     val signs = ('A'..'Z').toList()
 
-    // Create a map to store your drawable resource IDs
-    // This is created once and remembered across recompositions
     val signDrawables = remember {
         mapOf(
             'A' to R.drawable.a_test,
@@ -660,7 +645,9 @@ fun DisplaySampleScreen(
     ) { padding ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 128.dp),
-            modifier = Modifier.padding(padding).fillMaxSize(),
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
             contentPadding = PaddingValues(16.dp)
         ) {
             items(signs) { sign ->
@@ -760,9 +747,12 @@ fun InitialInfoDialog(
 ) {
     SignifyDialog(
         onDismissRequest = onDismiss,
-        title = "Welcome to Signify!",
-        text = "To achieve accurate results, please use a plain, well-lit background.",
+        title = "REMINDER",
+        text = "To achieve the most accurate results, please use a plain, well-lit background.",
         confirmButtonText = "Got it!",
         onConfirm = onDismiss
     )
 }
+
+
+

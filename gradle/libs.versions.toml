@@ -1,6 +1,6 @@
 [versions]
 accompanistSystemuicontroller = "0.28.0"
-agp = "8.9.2"
+agp = "8.10.1"
 cameraCore = "1.5.0-alpha06"
 coreSplashscreen = "1.0.1"
 kotlin = "2.0.21"
