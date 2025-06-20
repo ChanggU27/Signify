@@ -44,11 +44,17 @@ class MainActivity : ComponentActivity() {
                         viewModel.onBackPress()
                     }
 
+                    // --- STATE COLLECTION ---
+                    // We collect all necessary state here at the top level
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
                     val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
+                    val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
+                    val displaySample by viewModel.showDisplaySample.collectAsState()
+                    val showPracticeMode by viewModel.showPracticeMode.collectAsState()
                     val showAboutScreen by viewModel.showAboutScreen.collectAsState()
 
-                    if (showInitialInfoDialog) {
+                    // --- DIALOG LOGIC ---
+                    if (showInitialInfoDialog && hasCameraPermission) {
                         InitialInfoDialog(onDismiss = viewModel::onDismissInitialInfoDialog)
                     }
 
@@ -62,11 +68,8 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    val displaySample by viewModel.showDisplaySample.collectAsState()
-                    val showPracticeMode by viewModel.showPracticeMode.collectAsState()
-                    val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
 
-
+                    // --- SCREEN NAVIGATION LOGIC ---
                     when {
                         showAboutScreen -> {
                             AboutScreen(onDismiss = viewModel::onDismissAbout)
@@ -95,7 +98,6 @@ class MainActivity : ComponentActivity() {
                             val currentPracticeLetter by viewModel.currentPracticeLetter.collectAsState()
                             val practiceScore by viewModel.practiceScore.collectAsState()
                             val feedback by viewModel.feedback.collectAsState()
-
 
                             Box(modifier = Modifier.fillMaxSize()) {
                                 SignifyCameraScreen(
@@ -129,7 +131,6 @@ class MainActivity : ComponentActivity() {
                                     setupCamera = viewModel::setupCameraAndHandTracking
                                 )
 
-                                // Show the Practice HUD if the user is practicing
                                 if (practiceState == PracticeState.PRACTICING) {
                                     PracticeHUD(
                                         targetLetter = currentPracticeLetter,

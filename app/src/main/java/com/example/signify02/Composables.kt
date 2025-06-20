@@ -264,17 +264,19 @@ fun SignifyCameraScreen(
             }
         }
 
-        RecognizedSignBox(
-            modifier = Modifier.navigationBarsPadding(),
-            signHistory = signHistory,
-            isTorchOn = isTorchOn,
-            showLandmarks = showLandmarks,
-            onToggleShowLandmarks = onToggleShowLandmarks,
-            onClearHistory = onClearHistory,
-            onToggleTorch = onToggleTorch,
-            isTextToSpeechEnabled = isTextToSpeechEnabled,
-            onToggleTextToSpeech = onToggleTextToSpeech,
-        )
+        if (hasCameraPermission){
+            RecognizedSignBox(
+                modifier = Modifier.navigationBarsPadding(),
+                signHistory = signHistory,
+                isTorchOn = isTorchOn,
+                showLandmarks = showLandmarks,
+                onToggleShowLandmarks = onToggleShowLandmarks,
+                onClearHistory = onClearHistory,
+                onToggleTorch = onToggleTorch,
+                isTextToSpeechEnabled = isTextToSpeechEnabled,
+                onToggleTextToSpeech = onToggleTextToSpeech,
+            )
+        }
     }
 }
 
