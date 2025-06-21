@@ -93,8 +93,8 @@ fun AboutScreen(
             InfoSection(
                 title = "Technology",
                 content = "App: Kotlin & Jetpack Compose\n" +
-                        "Sign Detection Model: Python\n" +
-                        "Hand Detection Model: Google MediaPipe"
+                        "AI Model Training: Python & TensorFlow\n" +
+                        "AI Models: TensorFlow Lite & MediaPipe"
             )
 
             Spacer(modifier = Modifier.height(24.dp))
