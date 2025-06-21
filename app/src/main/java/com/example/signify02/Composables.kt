@@ -632,7 +632,7 @@ fun DisplaySampleScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ASL Alphabet Sample") },
+                title = { Text("ASL Alphabet Samples") },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
