@@ -1,3 +1,5 @@
+// Signify/app/src/main/java/com/example/signify02/MainActivity.kt
+
 package com.example.signify02
 
 import android.Manifest
@@ -16,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.core.view.WindowCompat
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
@@ -98,6 +101,7 @@ class MainActivity : ComponentActivity() {
                             val currentPracticeLetter by viewModel.currentPracticeLetter.collectAsState()
                             val practiceScore by viewModel.practiceScore.collectAsState()
                             val feedback by viewModel.feedback.collectAsState()
+                            val showHintImage by viewModel.showHintImage.collectAsState()
 
                             Box(modifier = Modifier.fillMaxSize()) {
                                 SignifyCameraScreen(
@@ -128,7 +132,8 @@ class MainActivity : ComponentActivity() {
                                             onPermissionResult(isGranted)
                                         }
                                     },
-                                    setupCamera = viewModel::setupCameraAndHandTracking
+                                    setupCamera = viewModel::setupCameraAndHandTracking,
+                                    practiceState = practiceState
                                 )
 
                                 if (practiceState == PracticeState.PRACTICING) {
@@ -136,7 +141,11 @@ class MainActivity : ComponentActivity() {
                                         targetLetter = currentPracticeLetter,
                                         currentScore = practiceScore,
                                         feedback = feedback,
-                                        onExit = viewModel::endPractice
+                                        onExit = viewModel::endPractice,
+                                        showHint = showHintImage,
+                                        onHintRequested = viewModel::onHintRequested,
+                                        onPreviousLetter = viewModel::onPreviousLetter,
+                                        onNextLetter = viewModel::onNextLetter
                                     )
                                 }
                             }
@@ -154,8 +163,4 @@ class MainActivity : ComponentActivity() {
             permissionResultCallback?.invoke(isGranted)
             permissionResultCallback = null
         }
-}
-
-fun Color.luminance(): Float {
-    return (0.2126f * red + 0.7152f * green + 0.0722f * blue)
 }

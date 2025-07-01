@@ -70,6 +70,35 @@ val HAND_CONNECTIONS = listOf(
     Pair(0, 5), Pair(5, 9), Pair(9, 13), Pair(13, 17), Pair(0, 17) // Palm
 )
 
+val SignDrawables = mapOf(
+    'A' to R.drawable.a_test,
+    'B' to R.drawable.b_test,
+    'C' to R.drawable.c_test,
+    'D' to R.drawable.d_test,
+    'E' to R.drawable.e_test,
+    'F' to R.drawable.f_test,
+    'G' to R.drawable.g_test,
+    'H' to R.drawable.h_test,
+    'I' to R.drawable.i_test,
+    'J' to R.drawable.j_test,
+    'K' to R.drawable.k_test,
+    'L' to R.drawable.l_test,
+    'M' to R.drawable.m_test,
+    'N' to R.drawable.n_test,
+    'O' to R.drawable.o_test,
+    'P' to R.drawable.p_test,
+    'Q' to R.drawable.q_test,
+    'R' to R.drawable.r_test,
+    'S' to R.drawable.s_test,
+    'T' to R.drawable.t_test,
+    'U' to R.drawable.u_test,
+    'V' to R.drawable.v_test,
+    'W' to R.drawable.w_test,
+    'X' to R.drawable.x_test,
+    'Y' to R.drawable.y_test,
+    'Z' to R.drawable.z_test,
+)
+
 @Composable
 fun SignifyCameraScreen(
     modifier: Modifier = Modifier,
@@ -103,8 +132,9 @@ fun SignifyCameraScreen(
     onStartPracticeMode: () -> Unit,
     // About Screen
     onDisplayAbout: () -> Unit,
+    practiceState: PracticeState
 
-) {
+    ) {
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -210,7 +240,7 @@ fun SignifyCameraScreen(
 
                     // Center: Title
                     Text(
-                        text = "Signify",
+                        text = if (practiceState == PracticeState.PRACTICING) "ASL Practice" else "Signify",
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -338,7 +368,7 @@ fun RecognizedSignBox(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
 
-            ) {
+                ) {
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -598,37 +628,6 @@ fun DisplaySampleScreen(
 
     val signs = ('A'..'Z').toList()
 
-    val signDrawables = remember {
-        mapOf(
-            'A' to R.drawable.a_test,
-            'B' to R.drawable.b_test,
-            'C' to R.drawable.c_test,
-            'D' to R.drawable.d_test,
-            'E' to R.drawable.e_test,
-            'F' to R.drawable.f_test,
-            'G' to R.drawable.g_test,
-            'H' to R.drawable.h_test,
-            'I' to R.drawable.i_test,
-            'J' to R.drawable.j_test,
-            'K' to R.drawable.k_test,
-            'L' to R.drawable.l_test,
-            'M' to R.drawable.m_test,
-            'N' to R.drawable.n_test,
-            'O' to R.drawable.o_test,
-            'P' to R.drawable.p_test,
-            'Q' to R.drawable.q_test,
-            'R' to R.drawable.r_test,
-            'S' to R.drawable.s_test,
-            'T' to R.drawable.t_test,
-            'U' to R.drawable.u_test,
-            'V' to R.drawable.v_test,
-            'W' to R.drawable.w_test,
-            'X' to R.drawable.x_test,
-            'Y' to R.drawable.y_test,
-            'Z' to R.drawable.z_test,
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -653,7 +652,7 @@ fun DisplaySampleScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(8.dp)
                 ) {
-                    val resourceId = signDrawables[sign]
+                    val resourceId = SignDrawables[sign]
                     if (resourceId != null) {
                         Image(
                             painter = painterResource(id = resourceId),
@@ -679,7 +678,10 @@ fun SignifyDialog(
     confirmButtonText: String,
     onConfirm: () -> Unit,
     dismissButtonText: String? = null,
-    onDismiss: (() -> Unit)? = null
+    onDismiss: (() -> Unit)? = null,
+    showCheckbox: Boolean = false,
+    checkboxChecked: Boolean = false,
+    onCheckboxCheckedChange: ((Boolean) -> Unit)? = null
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
@@ -702,7 +704,28 @@ fun SignifyDialog(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(5.dp))
+
+                // Checkbox for "Do not show again"
+                if (showCheckbox && onCheckboxCheckedChange != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Checkbox(
+                            checked = checkboxChecked,
+                            onCheckedChange = onCheckboxCheckedChange
+                        )
+                        Text(
+                            text = "Do not show again",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Yrsa),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -741,16 +764,18 @@ fun ExitConfirmationDialog(
 
 @Composable
 fun InitialInfoDialog(
-    onDismiss: () -> Unit
+    onDismiss: (Boolean) -> Unit
 ) {
+    var doNotShowAgainChecked by remember { mutableStateOf(false) }
+
     SignifyDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { onDismiss(doNotShowAgainChecked) },
         title = "REMINDER",
         text = "To achieve the most accurate results, please use a plain, well-lit background.",
         confirmButtonText = "Got it!",
-        onConfirm = onDismiss
+        onConfirm = { onDismiss(doNotShowAgainChecked) },
+        showCheckbox = true,
+        checkboxChecked = doNotShowAgainChecked,
+        onCheckboxCheckedChange = { doNotShowAgainChecked = it }
     )
 }
-
-
-

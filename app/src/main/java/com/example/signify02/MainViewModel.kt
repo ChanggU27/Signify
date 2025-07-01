@@ -29,6 +29,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
+import androidx.core.content.edit
+
 
 enum class PracticeState {
     NOT_STARTED,
@@ -41,6 +43,9 @@ data class Feedback(val isCorrect: Boolean, val timestamp: Long = System.current
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     @SuppressLint("StaticFieldLeak")
     private val context: Context = application.applicationContext
+
+    private val PREFS_NAME = "SignifyPrefs"
+    private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
 
     // --- State for camera permission ---
     private val _hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(context))
@@ -82,7 +87,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val showPracticeMode = _showPracticeMode.asStateFlow()
     private val _showExitDialog = MutableStateFlow(false)
     val showExitDialog = _showExitDialog.asStateFlow()
-    private val _showInitialInfoDialog = MutableStateFlow(true)
+
+    // Initial info dialog state, loaded from preferences
+    private val _showInitialInfoDialog = MutableStateFlow(getShowInitialInfoDialogPreference())
     val showInitialInfoDialog = _showInitialInfoDialog.asStateFlow()
 
     // --- About Screen ---
@@ -98,7 +105,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val practiceScore: StateFlow<Int> = _practiceScore.asStateFlow()
     private val _feedback = MutableStateFlow<Feedback?>(null)
     val feedback: StateFlow<Feedback?> = _feedback.asStateFlow()
+    private val _showHintImage = MutableStateFlow(false)
+    val showHintImage: StateFlow<Boolean> = _showHintImage.asStateFlow()
 
+    private val alphabet = ('A'..'Z').toList()
 
     // --- Camera, Executors, and Analyzers ---
     private var camera: Camera? = null
@@ -118,8 +128,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _hasCameraPermission.value = isGranted
     }
 
-    fun onDismissInitialInfoDialog() {
+    fun onDismissInitialInfoDialog(doNotShowAgain: Boolean) {
         _showInitialInfoDialog.value = false
+        if (doNotShowAgain) {
+            saveShowInitialInfoDialogPreference(false)
+        }
+    }
+
+    private fun getShowInitialInfoDialogPreference(): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, true)
+    }
+
+    private fun saveShowInitialInfoDialogPreference(show: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, show) }
     }
 
     private fun checkCameraPermissionStatus(context: Context): Boolean {
@@ -321,7 +344,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _showAboutScreen.value = false
     }
 
-    private fun calculateBoundingBoxes(result: HandLandmarkerResult?, padding: Float = 0.05f): List<RectF> {
+    fun onHintRequested() {
+        viewModelScope.launch {
+            _showHintImage.value = true
+            delay(3000)
+            _showHintImage.value = false
+        }
+    }
+
+    fun onPreviousLetter() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentLetterChar = _currentPracticeLetter.value?.singleOrNull()
+            if (currentLetterChar != null) {
+                val currentIndex = alphabet.indexOf(currentLetterChar)
+                if (currentIndex != -1) {
+                    // Calculate previous index, wrapping around from 'A' to 'Z'
+                    val previousIndex = (currentIndex - 1 + alphabet.size) % alphabet.size
+                    _currentPracticeLetter.value = alphabet[previousIndex].toString()
+                    _feedback.value = null
+                    _showHintImage.value = false
+                }
+            }
+        }
+    }
+
+    fun onNextLetter() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentLetterChar = _currentPracticeLetter.value?.singleOrNull()
+            if (currentLetterChar != null) {
+                val currentIndex = alphabet.indexOf(currentLetterChar)
+                if (currentIndex != -1) {
+                    // Calculate next index, wrapping around from 'Z' to 'A'
+                    val nextIndex = (currentIndex + 1) % alphabet.size
+                    _currentPracticeLetter.value = alphabet[nextIndex].toString()
+                    _feedback.value = null
+                    _showHintImage.value = false
+                }
+            }
+        }
+    }
+
+    private fun calculateBoundingBoxes(result: HandLandmarkerResult?, padding: Float = 0.14f): List<RectF> {
         val boxList = mutableListOf<RectF>()
         result?.landmarks()?.forEach { handLandmarks ->
             if (handLandmarks.isNotEmpty()) {
