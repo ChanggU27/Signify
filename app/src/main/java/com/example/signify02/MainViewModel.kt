@@ -232,21 +232,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         return@launch
                     }
 
-                    // Sign recognition logic
+
                     if (confidence >= CONFIDENCE_THRESHOLD) {
-                        val currentHistory = _signHistory.value
-                        if (currentHistory.isEmpty() || currentHistory.last() != sign) {
-                            _predicteSign.value = sign
-                            _currentConfidence.value = confidence
-                            _signHistory.value = currentHistory + sign
-                            if (_isTextToSpeechEnabled.value && tts != null && !sign.isBlank()) {
-                                tts?.speak(sign, TextToSpeech.QUEUE_ADD, null, null)
-                            }
-                        }
+                        _predicteSign.value = sign
+                        _currentConfidence.value = confidence
+
                     }
                 }
             }
         )
+    }
+
+    // Function to append the predicted sign to history and speak it
+    fun appendPredictedSignToHistory() {
+        viewModelScope.launch(Dispatchers.Main) {
+            val signToAppend = _predicteSign.value
+            if (signToAppend.isNotEmpty()) {
+                val currentHistory = _signHistory.value.toMutableList()
+                if (currentHistory.isEmpty() || currentHistory.last() != signToAppend) {
+                    _signHistory.value = currentHistory + signToAppend
+
+                    //TTS
+                    if (_isTextToSpeechEnabled.value && tts != null && !signToAppend.isBlank()) {
+                        tts?.speak(signToAppend, TextToSpeech.QUEUE_ADD, null, null)
+                    }
+                }
+            }
+        }
     }
 
     private fun triggerFeedback(isCorrect: Boolean) {

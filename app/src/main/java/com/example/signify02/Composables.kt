@@ -119,7 +119,7 @@ fun SignifyCameraScreen(
     onToggleCamera: () -> Unit,
     requestCameraPermission: (onPermissionResult: (Boolean) -> Unit) -> Unit,
     setupCamera: (Context, LifecycleOwner, Preview.SurfaceProvider) -> Unit,
-    // Add parameters from ViewModel needed by child composables
+    // ViewModel needed by child composables
     showLandmarks: Boolean,
     landmarkResult: HandLandmarkerResult?,
     onToggleShowLandmarks: () -> Unit,
@@ -132,9 +132,11 @@ fun SignifyCameraScreen(
     onStartPracticeMode: () -> Unit,
     // About Screen
     onDisplayAbout: () -> Unit,
-    practiceState: PracticeState
+    practiceState: PracticeState,
+    // Append to sign history button
+    onAppendSignToHistory: () -> Unit
 
-    ) {
+) {
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -305,6 +307,7 @@ fun SignifyCameraScreen(
                 onToggleTorch = onToggleTorch,
                 isTextToSpeechEnabled = isTextToSpeechEnabled,
                 onToggleTextToSpeech = onToggleTextToSpeech,
+                onAppendSignToHistory = onAppendSignToHistory
             )
         }
     }
@@ -351,6 +354,7 @@ fun RecognizedSignBox(
     onToggleTorch: () -> Unit,
     isTextToSpeechEnabled: Boolean,
     onToggleTextToSpeech: () -> Unit,
+    onAppendSignToHistory: () -> Unit
 ) {
     Box(
         modifier = modifier
@@ -419,6 +423,22 @@ fun RecognizedSignBox(
                             imageVector = if (isTextToSpeechEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                             contentDescription = "Toggle Text-to-Speech",
                             tint = if (isTextToSpeechEnabled) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current // Changed to MaterialTheme.colorScheme.onSecondary
+                        )
+                    }
+
+                    // Add to History Button
+                    IconButton(
+                        onClick = onAppendSignToHistory,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add to History",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 

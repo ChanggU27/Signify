@@ -92,7 +92,7 @@ fun AboutScreen(
                 title = "Developers",
                 content = "Castillon, Karl Emerson\n" +
                         "Manghi, Darius-Xavier\n" +
-                        "Mojagan, Clark Andrian\n" +
+                        "Mojagan, Clark Adrian\n" +
                         "Villa, John Jacob T."
             )
 

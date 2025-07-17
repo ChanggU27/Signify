@@ -4,7 +4,7 @@ package com.example.signify02
 // --- Constants ---
 // ====================================================================================
 
-const val TAG = "ASLSignDetectionApp"
+const val TAG = "Signify_Log"
 
 // Sign Detection Model Constants
 const val SIGN_MODEL_FILE = "asl_model_best.tflite"
