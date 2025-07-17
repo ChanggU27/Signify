@@ -5,16 +5,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,15 +86,21 @@ fun AboutScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            // Developers Section
             InfoSection(
+                icon = Icons.Filled.Code,
                 title = "Developers",
-                content = "Catillon, Karl Emerson\n" +
+                content = "Castillon, Karl Emerson\n" +
                         "Manghi, Darius-Xavier\n" +
                         "Mojagan, Clark Andrian\n" +
                         "Villa, John Jacob T."
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Technology Section
             InfoSection(
+                icon = Icons.Filled.LaptopMac,
                 title = "Technology",
                 content = "App: Kotlin & Jetpack Compose\n" +
                         "AI Model Training: Python & TensorFlow\n" +
@@ -102,21 +112,33 @@ fun AboutScreen(
     }
 }
 
-
 @Composable
-private fun InfoSection(title: String, content: String) {
+private fun InfoSection(icon: ImageVector, title: String, content: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = "$title Icon",
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = content,

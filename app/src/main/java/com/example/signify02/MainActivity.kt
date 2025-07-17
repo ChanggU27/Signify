@@ -3,6 +3,8 @@
 package com.example.signify02
 
 import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -19,15 +21,38 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
+    // ActivityResultLauncher for CAMERA permission
+    private var cameraPermissionResultCallback: ((Boolean) -> Unit)? = null
+    private val requestCameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            cameraPermissionResultCallback?.invoke(isGranted)
+            cameraPermissionResultCallback = null
+        }
+
+    // ActivityResultLauncher for POST_NOTIFICATIONS permission
+    private val requestNotificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                scheduleAslReminder()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
+
+        checkAndRequestNotificationPermission()
 
         setContent {
             val systemUiController = rememberSystemUiController()
@@ -48,7 +73,6 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // --- STATE COLLECTION ---
-                    // We collect all necessary state here at the top level
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
                     val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
                     val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
@@ -70,7 +94,6 @@ class MainActivity : ComponentActivity() {
                             onDismiss = viewModel::onDismissExitDialog
                         )
                     }
-
 
                     // --- SCREEN NAVIGATION LOGIC ---
                     when {
@@ -126,11 +149,11 @@ class MainActivity : ComponentActivity() {
                                     onStartPracticeMode = viewModel::onStartPracticeMode,
                                     onDisplayAbout = viewModel::onDisplayAbout,
                                     requestCameraPermission = { onPermissionResult ->
-                                        requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        permissionResultCallback = { isGranted ->
+                                        cameraPermissionResultCallback = { isGranted ->
                                             viewModel.updateCameraPermissionStatus(isGranted)
                                             onPermissionResult(isGranted)
                                         }
+                                        requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                     },
                                     setupCamera = viewModel::setupCameraAndHandTracking,
                                     practiceState = practiceState
@@ -156,11 +179,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private var permissionResultCallback: ((Boolean) -> Unit)? = null
-
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            permissionResultCallback?.invoke(isGranted)
-            permissionResultCallback = null
+    private fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33+
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    scheduleAslReminder()
+                }
+                else -> {
+                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            scheduleAslReminder()
         }
+    }
+
+    private fun scheduleAslReminder() {
+        val workTag = "asl_reminder_work"
+
+        val repeatingRequest = PeriodicWorkRequestBuilder<NotificationWorker>(
+            7,
+            TimeUnit.HOURS
+        )
+            .setInitialDelay(2, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            workTag,
+            ExistingPeriodicWorkPolicy.KEEP,
+            repeatingRequest
+        )
+    }
 }

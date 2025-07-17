@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.compose.material)
     implementation(libs.core)
     implementation(libs.androidx.media3.common.ktx)
+    implementation(libs.protolite.well.known.types)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -88,5 +89,8 @@ dependencies {
 
     // System UI Controller
     implementation(libs.accompanist.systemuicontroller)
+
+    // Notification
+    implementation(libs.androidx.work.runtime.ktx)
 
 }
