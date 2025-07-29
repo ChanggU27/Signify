@@ -27,22 +27,21 @@ class NotificationWorker(
         return Result.success()
     }
 
+    @SuppressLint("MissingPermission")
     private fun showAslReminderNotification() {
         val channelId = "asl_reminder_channel"
         val notificationId = 1
         val context = applicationContext
 
-        // Create a notification channel
         createNotificationChannel(context, channelId)
 
-        // Check for PERMISSION
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                return
+                return // Do not show notification if permission is not granted
             }
         }
 
@@ -70,19 +69,17 @@ class NotificationWorker(
         }
     }
 
-
-    @SuppressLint("SuspiciousIndentation")
     private fun createNotificationChannel(context: Context, channelId: String) {
-
-        val name = "ASL Reminder"
-        val descriptionText = "Reminders to practice ASL alphabet skills"
-        val importance = NotificationManager.IMPORTANCE_DEFAULT
-        val channel = NotificationChannel(channelId, name, importance).apply {
-            description = descriptionText
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "ASL Reminder"
+            val descriptionText = "Reminders to practice ASL alphabet skills"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
         }
-        val notificationManager: NotificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
-
     }
 }

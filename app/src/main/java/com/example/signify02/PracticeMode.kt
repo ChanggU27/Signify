@@ -4,11 +4,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,16 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.filled.Lightbulb
+import com.example.signify02.ui.Yrsa
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,39 +45,30 @@ fun LearningHubScreen(
             )
         }
     ) { padding ->
+        // First look of practice mode
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                "Ready to Practice?",
-                style = MaterialTheme.typography.headlineMedium.copy(fontFamily = Yrsa),
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
+            Text("Ready to Practice?", style = MaterialTheme.typography.headlineMedium.copy(fontFamily = Yrsa))
+            Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onStartFlashcards,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xff109e0b),
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ))
-             {
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xff109e0b))
+            ) {
                 Text("Start Flashcards", fontFamily = Yrsa)
             }
         }
     }
 }
 
-
 @Composable
 fun PracticeHUD(
     modifier: Modifier = Modifier,
     targetLetter: String?,
     currentScore: Int,
-    feedback: Feedback?,
+    feedback: MainViewModel.Feedback?,
     onExit: () -> Unit,
     showHint: Boolean,
     onHintRequested: () -> Unit,
@@ -86,18 +77,16 @@ fun PracticeHUD(
 ) {
     val currentHintDrawable = targetLetter?.uppercase()?.let { SignDrawables[it.single()] }
 
+    // Inside practice mode
     Box(modifier = modifier.fillMaxSize()) {
-        // Top Banner for instructions and score
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 195.dp),
+                .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Score Display
             Text(
                 text = "Score: $currentScore",
                 color = Color.White,
@@ -106,39 +95,23 @@ fun PracticeHUD(
                 fontFamily = Yrsa,
                 style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 8f))
             )
-
-            //Hint Button
-            Button(
-                onClick = onHintRequested,
-                modifier = Modifier
-                    .wrapContentSize()
-                    .padding(8.dp)
-            ) {
-                Icon(Icons.Default.Lightbulb, contentDescription = "Show Hint", modifier = Modifier.size(24.dp))
+            Button(onClick = onHintRequested) {
+                Icon(Icons.Default.Lightbulb, "Show Hint", modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Hint", fontFamily = Yrsa)
             }
-
-            // Exit Button
             Button(
                 onClick = onExit,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xff960c18),
-                    contentColor = Color.White
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xff960c18), contentColor = Color.White)
             ) {
                 Text("End Practice", fontFamily = Yrsa)
             }
         }
-
-        // Center display - Target Letter and Hint Button
         targetLetter?.let {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .offset(y = (-120).dp)
+                modifier = Modifier.align(Alignment.Center)
             ) {
                 Text(
                     text = "Make the sign for:",
@@ -158,40 +131,18 @@ fun PracticeHUD(
                 Spacer(modifier = Modifier.height(185.dp))
             }
         }
-
-        // Previous Letter Button
         IconButton(
             onClick = onPreviousLetter,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = 16.dp, y = (-50).dp)
-                .size(48.dp)
+            modifier = Modifier.align(Alignment.CenterStart).offset(x = 16.dp, y = (30).dp).size(48.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = "Previous Letter",
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
-            )
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous Letter", tint = Color.White, modifier = Modifier.size(36.dp))
         }
-
-        // Next Letter Button
         IconButton(
             onClick = onNextLetter,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .offset(x = (-16).dp, y = (-50).dp)
-                .size(48.dp)
+            modifier = Modifier.align(Alignment.CenterEnd).offset(x = (-16).dp, y = (30).dp).size(48.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Next Random Letter",
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
-            )
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next Letter", tint = Color.White, modifier = Modifier.size(36.dp))
         }
-
-        // Hint Image Display
         AnimatedVisibility(
             visible = showHint && currentHintDrawable != null,
             enter = fadeIn(animationSpec = tween(300)),
@@ -200,11 +151,7 @@ fun PracticeHUD(
         ) {
             if (currentHintDrawable != null) {
                 Box(
-                    modifier = Modifier
-                        .size(150.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
-                        .padding(8.dp),
+                    modifier = Modifier.size(150.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -215,30 +162,16 @@ fun PracticeHUD(
                 }
             }
         }
-
-
-        // Feedback overlay
         AnimatedVisibility(
-            visible = feedback != null,
+            visible = feedback != null && feedback.isCorrect,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300, delayMillis = 400)),
             modifier = Modifier.align(Alignment.Center)
         ) {
-            if (feedback != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xff109e0b))
-                        .padding(horizontal = 32.dp, vertical = 16.dp)
-                ) {
-                    Text(
-                        text = if (feedback.isCorrect) "Correct!" else "Try again!",
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = Yrsa
-                    )
-                }
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xff109e0b)).padding(horizontal = 32.dp, vertical = 16.dp)
+            ) {
+                Text("Correct!", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold, fontFamily = Yrsa)
             }
         }
     }

@@ -1,14 +1,10 @@
 package com.example.signify02
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.RectF
-import android.speech.tts.TextToSpeech
-import android.util.Log
-import android.util.Size
-import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -19,199 +15,143 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
+import android.speech.tts.TextToSpeech
+import androidx.camera.core.Camera
+import java.util.Locale
+import kotlinx.coroutines.delay
 import androidx.core.content.edit
+import kotlin.text.compareTo
 
-
-enum class PracticeState {
-    NOT_STARTED,
-    PRACTICING
-}
-
-// Data class to hold the immediate feedback state
-data class Feedback(val isCorrect: Boolean, val timestamp: Long = System.currentTimeMillis())
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    @SuppressLint("StaticFieldLeak")
-    private val context: Context = application.applicationContext
 
-    private val PREFS_NAME = "SignifyPrefs"
-    private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
+    // --- Reference to camera ---
+    private var camera: Camera? = null
 
-    // --- State for camera permission ---
-    private val _hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(context))
-    val hasCameraPermission: StateFlow<Boolean> = _hasCameraPermission.asStateFlow()
 
-    // --- State Flows for Sign Recognition ---
-    private val _predicteSign = MutableStateFlow("")
-    val predictedSign: StateFlow<String> = _predicteSign
-    private val _currentConfidence = MutableStateFlow(0f)
-    val currentConfidence: StateFlow<Float> = _currentConfidence
-    private val _signHistory = MutableStateFlow<List<String>>(emptyList())
-    val signHistory: StateFlow<List<String>> = _signHistory
+    // ---StateFlow for CameraPermission ---
+    private val _hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(application))
+    val hasCameraPermission = _hasCameraPermission.asStateFlow()
+
 
     // --- State Flows for Hand Detection ---
     private val _handLandmarkerResult = MutableStateFlow<HandLandmarkerResult?>(null)
-    val handLandmarkerResult: StateFlow<HandLandmarkerResult?> = _handLandmarkerResult
+    val handLandmarkerResult = _handLandmarkerResult.asStateFlow()
     private val _handBoundingBoxes = MutableStateFlow<List<RectF>>(emptyList())
-    val handBoundingBoxes: StateFlow<List<RectF>> = _handBoundingBoxes
-    private val _showLandmarks = MutableStateFlow(false)
-    val showLandmarks: StateFlow<Boolean> = _showLandmarks
+    val handBoundingBoxes = _handBoundingBoxes.asStateFlow()
+    //Landmark button
+    private val _showLandmarks = MutableStateFlow(true)
+    val showLandmarks = _showLandmarks.asStateFlow()
 
-    // --- Common State Flows ---
-    private val _isTorchOn = MutableStateFlow(false)
-    val isTorchOn: StateFlow<Boolean> = _isTorchOn
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // --- State to track camera lens ---
     private val _currentCameraLens = MutableStateFlow(CameraSelector.LENS_FACING_BACK)
-    val currentCameraLens: StateFlow<Int> = _currentCameraLens
+    val currentCameraLens = _currentCameraLens.asStateFlow()
 
-    // --- Text-to-Speech State ---
+
+    // --- Camera, Executors, and Analyzers ---
+    private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var handAnalyzer: HandTrackingAnalyzer? = null
+
+
+    // --- State Flow for Sign Recognition
+    private val _predictedSign = MutableStateFlow("")
+    var predictedSign = _predictedSign.asStateFlow()
+    private val _currentConfidence = MutableStateFlow(0f)
+    val currentConfidence = _currentConfidence.asStateFlow()
+    private var signAnalyzer: SignDetectionAnalyzer? = null
+    // Sign History
+    private val _signHistory = MutableStateFlow<List<String>>(emptyList())
+    val signHistory = _signHistory.asStateFlow()
+
+
+    // --- States for Text To Speech ---
     private val _isTextToSpeechEnabled = MutableStateFlow(false)
-    val isTextToSpeechEnabled: StateFlow<Boolean> = _isTextToSpeechEnabled
+    var isTextToSpeechEnabled = _isTextToSpeechEnabled.asStateFlow()
     private var tts: TextToSpeech? = null
 
-    // --- Navigation and Dialog State ---
+
+    // --- Common StateFlows ---
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage = _errorMessage.asStateFlow()
+    // Torch
+    private val _isTorchOn = MutableStateFlow(false)
+    var isTorchOn = _isTorchOn.asStateFlow()
+
+
+    // --- Navigation State ---
     private val _showDisplayScreen = MutableStateFlow(false)
     val showDisplaySample = _showDisplayScreen.asStateFlow()
-    private val _showPracticeMode = MutableStateFlow(false)
-    val showPracticeMode = _showPracticeMode.asStateFlow()
-    private val _showExitDialog = MutableStateFlow(false)
-    val showExitDialog = _showExitDialog.asStateFlow()
-
-    // Initial info dialog state, loaded from preferences
-    private val _showInitialInfoDialog = MutableStateFlow(getShowInitialInfoDialogPreference())
-    val showInitialInfoDialog = _showInitialInfoDialog.asStateFlow()
-
-    // --- About Screen ---
     private val _showAboutScreen = MutableStateFlow(false)
     val showAboutScreen = _showAboutScreen.asStateFlow()
+    private val _showExitDialog = MutableStateFlow(false)
+    val showExitDialog = _showExitDialog.asStateFlow()
+    private val _showPracticeMode = MutableStateFlow(false)
+    val showPracticeMode = _showPracticeMode.asStateFlow()
+
 
     // --- State Flows for Practice Mode ---
     private val _practiceState = MutableStateFlow(PracticeState.NOT_STARTED)
-    val practiceState: StateFlow<PracticeState> = _practiceState.asStateFlow()
+    val practiceState = _practiceState.asStateFlow()
     private val _currentPracticeLetter = MutableStateFlow<String?>(null)
-    val currentPracticeLetter: StateFlow<String?> = _currentPracticeLetter.asStateFlow()
+    val currentPracticeLetter = _currentPracticeLetter.asStateFlow()
     private val _practiceScore = MutableStateFlow(0)
-    val practiceScore: StateFlow<Int> = _practiceScore.asStateFlow()
+    val practiceScore = _practiceScore.asStateFlow()
     private val _feedback = MutableStateFlow<Feedback?>(null)
-    val feedback: StateFlow<Feedback?> = _feedback.asStateFlow()
+    val feedback = _feedback.asStateFlow()
     private val _showHintImage = MutableStateFlow(false)
-    val showHintImage: StateFlow<Boolean> = _showHintImage.asStateFlow()
-
+    val showHintImage = _showHintImage.asStateFlow()
     private val alphabet = ('A'..'Z').toList()
 
-    // --- Camera, Executors, and Analyzers ---
-    private var camera: Camera? = null
-    private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private var signAnalyzer: SignDetectionAnalyzer? = null
-    private var handAnalyzer: HandTrackingAnalyzer? = null
+    // --- Add these constants for SharedPreferences ---
+    private val PREFS_NAME = "SignifyPrefs"
+    private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
 
+    // --- Add state for the initial info dialog ---
+    private val _showInitialInfoDialog = MutableStateFlow(getShowInitialInfoDialogPreference())
+    val showInitialInfoDialog = _showInitialInfoDialog.asStateFlow()
+
+    enum class PracticeState {
+        NOT_STARTED,
+        PRACTICING
+    }
+
+    data class Feedback(val isCorrect: Boolean, val timestamp: Long = System.currentTimeMillis())
+
+
+    //Initialize TTS
     init {
-        tts = TextToSpeech(getApplication()) { status ->
-            if (status == TextToSpeech.SUCCESS) {
+        tts = TextToSpeech(application){ status ->
+            if (status == TextToSpeech.SUCCESS){
                 tts?.language = Locale.US
             }
         }
     }
 
-    fun updateCameraPermissionStatus(isGranted: Boolean) {
+    // Camera Permissions
+    fun onPermissionResult(isGranted: Boolean) {
         _hasCameraPermission.value = isGranted
-    }
-
-    fun onDismissInitialInfoDialog(doNotShowAgain: Boolean) {
-        _showInitialInfoDialog.value = false
-        if (doNotShowAgain) {
-            saveShowInitialInfoDialogPreference(false)
-        }
-    }
-
-    private fun getShowInitialInfoDialogPreference(): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, true)
-    }
-
-    private fun saveShowInitialInfoDialogPreference(show: Boolean) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit { putBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, show) }
     }
 
     private fun checkCameraPermissionStatus(context: Context): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
-            android.Manifest.permission.CAMERA
+            Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun setupCameraAndHandTracking(
-        context: Context,
-        lifecycleOwner: LifecycleOwner,
-        surfaceProvider: Preview.SurfaceProvider
-    ) {
-        viewModelScope.launch {
-            try {
-                val cameraProvider: ProcessCameraProvider = ProcessCameraProvider.getInstance(getApplication()).await(context)
-                val preview = Preview.Builder().build().also {
-                    it.surfaceProvider = surfaceProvider
-                }
-                val cameraSelector = CameraSelector.Builder().requireLensFacing(_currentCameraLens.value).build()
-
-                if (signAnalyzer == null) {
-                    setupSignDetectionCallback()
-                }
-
-                if (handAnalyzer == null) {
-                    handAnalyzer = HandTrackingAnalyzer(getApplication()) { result ->
-                        val boundingBoxes = calculateBoundingBoxes(result)
-                        viewModelScope.launch(Dispatchers.Main) {
-                            _handLandmarkerResult.value = result
-                            _handBoundingBoxes.value = boundingBoxes
-                        }
-                    }
-                }
-
-                val signImageAnalysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(640, 480))
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                    .build()
-                    .also {
-                        signAnalyzer?.let { analyzer -> it.setAnalyzer(cameraExecutor, analyzer) }
-                    }
-
-                val handImageAnalysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(640, 480))
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                    .build()
-                    .also {
-                        handAnalyzer?.let { analyzer -> it.setAnalyzer(cameraExecutor, analyzer) }
-                    }
-
-                cameraProvider.unbindAll()
-                camera = cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    signImageAnalysis,
-                    handImageAnalysis
-                )
-                _errorMessage.value = null
-
-            } catch (exc: Exception) {
-                val errorMsg = "Camera setup failed: ${exc.localizedMessage}"
-                Log.e(TAG, errorMsg, exc)
-                _errorMessage.value = errorMsg
-            }
+    fun toggleCamera() {
+        _currentCameraLens.value = if (_currentCameraLens.value == CameraSelector.LENS_FACING_BACK) {
+            CameraSelector.LENS_FACING_FRONT
+        } else {
+            CameraSelector.LENS_FACING_BACK
         }
     }
 
@@ -221,80 +161,159 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             handBoundingBoxesFlow = handBoundingBoxes,
             onSignDetected = { sign, confidence ->
                 viewModelScope.launch(Dispatchers.Main) {
+                    // If we are in practice mode, handle practice logic
                     if (_practiceState.value == PracticeState.PRACTICING) {
                         if (confidence >= CONFIDENCE_THRESHOLD && sign.equals(_currentPracticeLetter.value, ignoreCase = true)) {
-                            // Correct sign
                             _practiceScore.value++
                             _currentPracticeLetter.value = ('A'..'Z').random().toString()
                             triggerFeedback(isCorrect = true)
                         }
-
-                        return@launch
+                        return@launch // dont update the main prediction while practicing
                     }
 
-
+                    // Normal sign detection logic
                     if (confidence >= CONFIDENCE_THRESHOLD) {
-                        _predicteSign.value = sign
+                        _predictedSign.value = sign
                         _currentConfidence.value = confidence
-
+                    } else {
+                        _predictedSign.value = ""
+                        _currentConfidence.value = 0f
                     }
                 }
             }
         )
     }
 
-    // Function to append the predicted sign to history and speak it
-    fun appendPredictedSignToHistory() {
-        viewModelScope.launch(Dispatchers.Main) {
-            val signToAppend = _predicteSign.value
-            if (signToAppend.isNotEmpty()) {
-                val currentHistory = _signHistory.value.toMutableList()
-                if (currentHistory.isEmpty() || currentHistory.last() != signToAppend) {
-                    _signHistory.value = currentHistory + signToAppend
+    fun setupCameraAndHandTracking(
+        context: Context,
+        lifecycleOwner: LifecycleOwner,
+        surfaceProvider: Preview.SurfaceProvider
+    ) {
+        viewModelScope.launch {
+            try {
+                if (signAnalyzer == null) { // this to prevent reinit
+                    setupSignDetectionCallback()
+                }
+                val cameraProvider: ProcessCameraProvider = ProcessCameraProvider.getInstance(context).await(context)
+                val preview = Preview.Builder().build().also { it.surfaceProvider = surfaceProvider }
+                val cameraSelector = CameraSelector.Builder()
+                    .requireLensFacing(_currentCameraLens.value)
+                    .build()
 
-                    //TTS
-                    if (_isTextToSpeechEnabled.value && tts != null && !signToAppend.isBlank()) {
-                        tts?.speak(signToAppend, TextToSpeech.QUEUE_ADD, null, null)
+                // --- Hand Analyzer Setup ---
+                handAnalyzer = HandTrackingAnalyzer(context) { result ->
+                    // This block runs every time a hand is detected
+                    val boundingBoxes = calculateBoundingBoxes(result)
+                    viewModelScope.launch(Dispatchers.Main) {
+                        _handLandmarkerResult.value = result
+                        _handBoundingBoxes.value = boundingBoxes
                     }
                 }
+
+                // ImageAnalysis use case for hand tracking
+                val handImageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                    .also {
+                        it.setAnalyzer(cameraExecutor, handAnalyzer!!)
+                    }
+
+
+                // -- Image analysis for sign detection
+                val signImageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                    .also {
+                        it.setAnalyzer(cameraExecutor, signAnalyzer!!)
+                    }
+
+                // Unbind all first
+                cameraProvider.unbindAll()
+                camera = cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    handImageAnalysis,
+                    signImageAnalysis
+                )
+                _errorMessage.value = null
+            } catch (exc: Exception) {
+                _errorMessage.value = "Camera Setup Failed: ${exc.localizedMessage}"
             }
         }
     }
 
-    private fun triggerFeedback(isCorrect: Boolean) {
-        viewModelScope.launch {
+    // --- Practice Mode Functions ---
+    fun onStartPracticeMode(){
+        _showPracticeMode.value = true
+        endPractice()
+    }
+
+    fun onDismissPracticeMode(){
+        _showPracticeMode.value = false
+    }
+
+    fun startFlashcardPractice(){
+        _practiceState.value = PracticeState.PRACTICING
+        _practiceScore.value = 0
+        _currentPracticeLetter.value = ('A'.. 'Z').random().toString()
+        _showPracticeMode.value = false
+    }
+
+    fun endPractice(){
+        _practiceState.value = PracticeState.NOT_STARTED
+        _currentPracticeLetter.value = null
+    }
+
+    private fun triggerFeedback(isCorrect: Boolean){
+        viewModelScope.launch{
             _feedback.value = Feedback(isCorrect)
-            delay(2000)
+            delay(3000)
             _feedback.value = null
         }
     }
 
+    fun onHintRequested(){
+        viewModelScope.launch{
+            _showHintImage.value = true
+            delay(3000)
+            _showHintImage.value = false
+        }
+    }
 
+    fun onPreviousLetter() {
+        val currentLetterChar = _currentPracticeLetter.value?.singleOrNull() ?: return
+        val currentIndex = alphabet.indexOf(currentLetterChar)
+        if (currentIndex != -1) {
+            val previousIndex = (currentIndex - 1 + alphabet.size) % alphabet.size
+            _currentPracticeLetter.value = alphabet[previousIndex].toString()
+        }
+    }
+
+    fun onNextLetter() {
+        val currentLetterChar = _currentPracticeLetter.value?.singleOrNull() ?: return
+        val currentIndex = alphabet.indexOf(currentLetterChar)
+        if (currentIndex != -1) {
+            val nextIndex = (currentIndex + 1) % alphabet.size
+            _currentPracticeLetter.value = alphabet[nextIndex].toString()
+        }
+    }
+
+
+    // --- Recognized Sign Box functions ---
     fun toggleTorch() {
         camera?.cameraControl?.enableTorch(!_isTorchOn.value)
         _isTorchOn.value = !_isTorchOn.value
     }
 
-    fun toggleCamera() {
-        viewModelScope.launch {
-            _currentCameraLens.value = if (_currentCameraLens.value == CameraSelector.LENS_FACING_BACK) {
-                CameraSelector.LENS_FACING_FRONT
-            } else {
-                CameraSelector.LENS_FACING_BACK
-            }
-        }
+    fun toggleShowLandmarks() {
+        _showLandmarks.value = !_showLandmarks.value
     }
 
     fun clearHistory() {
-        viewModelScope.launch(Dispatchers.Main) {
-            _predicteSign.value = ""
-            _currentConfidence.value = 0f
-            _signHistory.value = emptyList()
-        }
-    }
-
-    fun toggleShowLandmarks() {
-        _showLandmarks.value = !_showLandmarks.value
+        _signHistory.value = emptyList()
     }
 
     fun toggleTextToSpeech() {
@@ -304,38 +323,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startFlashcardPractice() {
-        _practiceState.value = PracticeState.PRACTICING
-        _practiceScore.value = 0
-        _currentPracticeLetter.value = ('A'..'Z').random().toString()
-        _showPracticeMode.value = false
+    fun appendPredictedSignToHistory() {
+        val signToAppend = _predictedSign.value
+        if (signToAppend.isNotEmpty()) {
+            _signHistory.value = _signHistory.value + signToAppend
+            if (_isTextToSpeechEnabled.value) {
+                tts?.speak(signToAppend, TextToSpeech.QUEUE_ADD, null, null)
+            }
+        }
     }
 
-    fun endPractice() {
-        _practiceState.value = PracticeState.NOT_STARTED
-        _currentPracticeLetter.value = null
-    }
 
-    fun onDisplaySample() {
+    // --- Kebab Menu Functions ---
+    fun onDisplaySample(){
         _showDisplayScreen.value = true
     }
 
-    fun onDismissInfo() {
+    fun onDismissInfo(){
         _showDisplayScreen.value = false
     }
 
-    fun onStartPracticeMode() {
-        _showPracticeMode.value = true
-        endPractice()
+    fun onDisplayAbout(){
+        _showAboutScreen.value = true
     }
 
-    fun onDismissPracticeMode() {
-        _showPracticeMode.value = false
+    fun onDismissAbout(){
+        _showAboutScreen.value = false
     }
 
-
-    fun onBackPress() {
-        when {
+    fun onBackPress(){
+        when{
             _showAboutScreen.value -> onDismissAbout()
             _showDisplayScreen.value -> onDismissInfo()
             _showPracticeMode.value -> onDismissPracticeMode()
@@ -344,59 +361,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onDismissExitDialog() {
+    // --- Dialogs ---
+    fun onDismissInitialInfoDialog(doNotShowAgain: Boolean){
+        _showInitialInfoDialog.value = false
+        if (doNotShowAgain){
+            saveShowInitialInfoDialogPreference(false)
+        }
+    }
+
+    private fun getShowInitialInfoDialogPreference(): Boolean{
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, true)
+    }
+
+    private fun saveShowInitialInfoDialogPreference(show: Boolean){
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, show)}
+    }
+
+
+    fun onDismissExitDialog(){
         _showExitDialog.value = false
     }
 
-    fun onDisplayAbout() {
-        _showAboutScreen.value = true
-    }
-
-    fun onDismissAbout() {
-        _showAboutScreen.value = false
-    }
-
-    fun onHintRequested() {
-        viewModelScope.launch {
-            _showHintImage.value = true
-            delay(3000)
-            _showHintImage.value = false
-        }
-    }
-
-    fun onPreviousLetter() {
-        viewModelScope.launch(Dispatchers.Default) {
-            val currentLetterChar = _currentPracticeLetter.value?.singleOrNull()
-            if (currentLetterChar != null) {
-                val currentIndex = alphabet.indexOf(currentLetterChar)
-                if (currentIndex != -1) {
-                    // Calculate previous index, wrapping around from 'A' to 'Z'
-                    val previousIndex = (currentIndex - 1 + alphabet.size) % alphabet.size
-                    _currentPracticeLetter.value = alphabet[previousIndex].toString()
-                    _feedback.value = null
-                    _showHintImage.value = false
-                }
-            }
-        }
-    }
-
-    fun onNextLetter() {
-        viewModelScope.launch(Dispatchers.Default) {
-            val currentLetterChar = _currentPracticeLetter.value?.singleOrNull()
-            if (currentLetterChar != null) {
-                val currentIndex = alphabet.indexOf(currentLetterChar)
-                if (currentIndex != -1) {
-                    // Calculate next index, wrapping around from 'Z' to 'A'
-                    val nextIndex = (currentIndex + 1) % alphabet.size
-                    _currentPracticeLetter.value = alphabet[nextIndex].toString()
-                    _feedback.value = null
-                    _showHintImage.value = false
-                }
-            }
-        }
-    }
-
-    private fun calculateBoundingBoxes(result: HandLandmarkerResult?, padding: Float = 0.14f): List<RectF> {
+    private fun calculateBoundingBoxes(result: HandLandmarkerResult?): List<RectF> {
         val boxList = mutableListOf<RectF>()
         result?.landmarks()?.forEach { handLandmarks ->
             if (handLandmarks.isNotEmpty()) {
@@ -410,6 +398,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     maxX = max(maxX, landmark.x())
                     maxY = max(maxY, landmark.y())
                 }
+                // Add some padding to the box
+                val padding = 0.1f
                 val rect = RectF(
                     max(0f, minX - padding),
                     max(0f, minY - padding),

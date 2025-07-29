@@ -1,24 +1,22 @@
 package com.example.signify02
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.RectF
-import android.util.Log
+import android.graphics.Typeface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,40 +24,47 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as ComposeSize
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
+import com.example.signify02.ui.Yrsa
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import android.graphics.Paint
-import android.graphics.Typeface
-import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.res.painterResource
-import androidx.core.content.res.ResourcesCompat
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.window.Dialog
-
-// ====================================================================================
-// --- Composable UI Layer ---
-// ====================================================================================
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.core.content.res.ResourcesCompat
 
 val HAND_CONNECTIONS = listOf(
     Pair(0, 1), Pair(1, 2), Pair(2, 3), Pair(3, 4),         // Thumb
@@ -71,103 +76,72 @@ val HAND_CONNECTIONS = listOf(
 )
 
 val SignDrawables = mapOf(
-    'A' to R.drawable.a_test,
-    'B' to R.drawable.b_test,
-    'C' to R.drawable.c_test,
-    'D' to R.drawable.d_test,
-    'E' to R.drawable.e_test,
-    'F' to R.drawable.f_test,
-    'G' to R.drawable.g_test,
-    'H' to R.drawable.h_test,
-    'I' to R.drawable.i_test,
-    'J' to R.drawable.j_test,
-    'K' to R.drawable.k_test,
-    'L' to R.drawable.l_test,
-    'M' to R.drawable.m_test,
-    'N' to R.drawable.n_test,
-    'O' to R.drawable.o_test,
-    'P' to R.drawable.p_test,
-    'Q' to R.drawable.q_test,
-    'R' to R.drawable.r_test,
-    'S' to R.drawable.s_test,
-    'T' to R.drawable.t_test,
-    'U' to R.drawable.u_test,
-    'V' to R.drawable.v_test,
-    'W' to R.drawable.w_test,
-    'X' to R.drawable.x_test,
-    'Y' to R.drawable.y_test,
-    'Z' to R.drawable.z_test,
+    'A' to R.drawable.a_test, 'B' to R.drawable.b_test, 'C' to R.drawable.c_test,
+    'D' to R.drawable.d_test, 'E' to R.drawable.e_test, 'F' to R.drawable.f_test,
+    'G' to R.drawable.g_test, 'H' to R.drawable.h_test, 'I' to R.drawable.i_test,
+    'J' to R.drawable.j_test, 'K' to R.drawable.k_test, 'L' to R.drawable.l_test,
+    'M' to R.drawable.m_test, 'N' to R.drawable.n_test, 'O' to R.drawable.o_test,
+    'P' to R.drawable.p_test, 'Q' to R.drawable.q_test, 'R' to R.drawable.r_test,
+    'S' to R.drawable.s_test, 'T' to R.drawable.t_test, 'U' to R.drawable.u_test,
+    'V' to R.drawable.v_test, 'W' to R.drawable.w_test, 'X' to R.drawable.x_test,
+    'Y' to R.drawable.y_test, 'Z' to R.drawable.z_test,
 )
 
 @Composable
 fun SignifyCameraScreen(
-    modifier: Modifier = Modifier,
-    //Camera Permission
     hasCameraPermission: Boolean,
-    // Sign Recognition State
-    predictedSign: String,
-    currentConfidence: Float,
-    signHistory: List<String>,
-    // Hand Detection State
+    requestCameraPermission: () -> Unit,
+    lifecycleOwner: LifecycleOwner,
+    setupCamera: (Context, LifecycleOwner, Preview.SurfaceProvider) -> Unit,
     handBoundingBoxes: List<RectF>,
-    // Common State & Callbacks
-    isTorchOn: Boolean,
+    landmarkResult: HandLandmarkerResult?,
     currentCameraLens: Int,
+    onToggleCamera: () -> Unit,
+    predictedSign: String,
+    predictedSignConfidence: Float,
+    signHistory: List<String>,
+    isTorchOn: Boolean,
+    showLandmarks: Boolean,
+    isTextToSpeechEnabled: Boolean,
     errorMessage: String?,
     onToggleTorch: () -> Unit,
-    onClearHistory: () -> Unit,
-    onToggleCamera: () -> Unit,
-    requestCameraPermission: (onPermissionResult: (Boolean) -> Unit) -> Unit,
-    setupCamera: (Context, LifecycleOwner, Preview.SurfaceProvider) -> Unit,
-    // ViewModel needed by child composables
-    showLandmarks: Boolean,
-    landmarkResult: HandLandmarkerResult?,
-    onToggleShowLandmarks: () -> Unit,
-    // TTS parameters
-    isTextToSpeechEnabled: Boolean,
+    onToggleShowLandMarks: () -> Unit,
     onToggleTextToSpeech: () -> Unit,
-    // Gallery button callback
+    onAppendSignToHistory: () -> Unit,
+    onClearHistory: () -> Unit,
     onDisplaySample: () -> Unit,
-    // Practice Mode
-    onStartPracticeMode: () -> Unit,
-    // About Screen
     onDisplayAbout: () -> Unit,
-    practiceState: PracticeState,
-    // Append to sign history button
-    onAppendSignToHistory: () -> Unit
+
+    onStartPracticeMode: () -> Unit,
+    practiceState: MainViewModel.PracticeState,
+    currentPracticeLetter: String?,
+    practiceScore: Int,
+    feedback: MainViewModel.Feedback?,
+    showHintImage: Boolean,
+    onEndPractice: () -> Unit,
+    onHintRequested: () -> Unit,
+    onPreviousLetter: () -> Unit,
+    onNextLetter: () -> Unit
 
 ) {
-
     val context = LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var showPermissionRationale by remember { mutableStateOf(!hasCameraPermission) }
     var previewView: PreviewView? by remember { mutableStateOf(null) }
 
-    LaunchedEffect(hasCameraPermission, previewView, currentCameraLens) {
+    LaunchedEffect(previewView, currentCameraLens) {
         if (hasCameraPermission && previewView != null) {
-            Log.d(TAG, "Permission granted and PreviewView ready, setting up camera.")
             setupCamera(context, lifecycleOwner, previewView!!.surfaceProvider)
-        } else {
-            Log.d(TAG, "Conditions not met for camera setup: hasPermission=$hasCameraPermission, previewViewIsNull=${previewView == null}")
         }
-
     }
 
-
-// Main layout column
     Column(
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        val cameraPreviewShape = RoundedCornerShape(
-            bottomStart = 24.dp,
-            bottomEnd = 24.dp
-        )
-
-        Box(modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .clip(cameraPreviewShape)
+    ){
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
         ) {
             if (hasCameraPermission) {
                 AndroidView(
@@ -176,7 +150,6 @@ fun SignifyCameraScreen(
                             scaleType = PreviewView.ScaleType.FILL_CENTER
                         }.also {
                             previewView = it
-                            Log.d(TAG, "PreviewView created and assigned.")
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -184,26 +157,37 @@ fun SignifyCameraScreen(
 
                 HandDetectionOverlay(
                     normalizedBoundingBoxes = handBoundingBoxes,
-                    predictedSign = predictedSign,
-                    predictedSignConfidence = currentConfidence,
-                    showLandmarks = showLandmarks,
                     landmarkResult = landmarkResult,
                     currentCameraLens = currentCameraLens,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    predictedSign = predictedSign,
+                    predictedSignConfidence = predictedSignConfidence,
+                    showLandmarks = showLandmarks
                 )
 
-                // Top bar content
+                if (practiceState == MainViewModel.PracticeState.PRACTICING) {
+                    PracticeHUD(
+                        targetLetter = currentPracticeLetter,
+                        currentScore = practiceScore,
+                        feedback = feedback,
+                        onExit = onEndPractice,
+                        showHint = showHintImage,
+                        onHintRequested = onHintRequested,
+                        onPreviousLetter = onPreviousLetter,
+                        onNextLetter = onNextLetter
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
-                        .padding(horizontal = 34.dp, vertical = 8.dp),
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: Kebab Menu
-                    Box {
+                    Box{
                         var menuExpanded by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
@@ -214,15 +198,16 @@ fun SignifyCameraScreen(
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
+                            onDismissRequest = { menuExpanded = false}
                         ) {
                             DropdownMenuItem(
-                                text = { Text("ASL Alphabet Samples", fontFamily = Yrsa) },
+                                text = {Text("ASL Alphabet Samples", fontFamily = Yrsa)},
                                 onClick = {
                                     onDisplaySample()
                                     menuExpanded = false
                                 }
                             )
+
                             DropdownMenuItem(
                                 text = { Text("Practice Mode", fontFamily = Yrsa) },
                                 onClick = {
@@ -230,8 +215,9 @@ fun SignifyCameraScreen(
                                     menuExpanded = false
                                 }
                             )
+
                             DropdownMenuItem(
-                                text = { Text("About", fontFamily = Yrsa) },
+                                text = {Text("About", fontFamily = Yrsa)},
                                 onClick = {
                                     onDisplayAbout()
                                     menuExpanded = false
@@ -239,109 +225,80 @@ fun SignifyCameraScreen(
                             )
                         }
                     }
-
-                    // Center: Title
                     Text(
-                        text = if (practiceState == PracticeState.PRACTICING) "ASL Practice" else "Signify",
+                        text = "Signify",
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = Yrsa,
                         style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.7f), Offset(4f, 4f), 8f))
                     )
-
-                    // Right: Camera Switch
-                    IconButton(
-                        onClick = onToggleCamera,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .padding(4.dp)
-                    ) {
+                    IconButton(onClick = onToggleCamera) {
                         Icon(
                             imageVector = Icons.Filled.Cameraswitch,
-                            contentDescription = if (currentCameraLens == CameraSelector.LENS_FACING_BACK) "Switch to Front Camera" else "Switch to Back Camera",
-                            tint = Color.White
+                            contentDescription = "Switch Camera",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
-            } else {
-                // Show the permission request UI
-                PermissionRequestUI(
-                    showRationale = showPermissionRationale,
-                    onRequestPermission = {
-                        requestCameraPermission { isGranted ->
 
-                            showPermissionRationale = !isGranted
-                            Log.d(TAG, "Permission result: $isGranted")
-                        }
+                errorMessage?.let{ message ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
+                            .padding(8.dp)
+                            .align(Alignment.BottomCenter)
+                    ){
+                        Text(text = message, color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.align(Alignment.Center))
                     }
-                )
-            }
-
-            // Display error messages at the bottom of the preview area
-            errorMessage?.let { message ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
-                        .padding(8.dp)
-                        .align(Alignment.BottomCenter)
-                ) {
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
                 }
+            } else {
+                PermissionRequestUI(onRequestPermission = requestCameraPermission)
             }
         }
 
-        if (hasCameraPermission){
+        if(hasCameraPermission){
             RecognizedSignBox(
                 modifier = Modifier.navigationBarsPadding(),
                 signHistory = signHistory,
                 isTorchOn = isTorchOn,
                 showLandmarks = showLandmarks,
-                onToggleShowLandmarks = onToggleShowLandmarks,
-                onClearHistory = onClearHistory,
-                onToggleTorch = onToggleTorch,
                 isTextToSpeechEnabled = isTextToSpeechEnabled,
+                onToggleTorch = onToggleTorch,
+                onToggleShowLandMarks = onToggleShowLandMarks,
                 onToggleTextToSpeech = onToggleTextToSpeech,
-                onAppendSignToHistory = onAppendSignToHistory
+                onAppendSignToHistory = onAppendSignToHistory,
+                onClearHistory = onClearHistory
             )
         }
+
     }
 }
 
+
+//Camera permission UI
 @Composable
-fun PermissionRequestUI(
-    showRationale: Boolean,
-    onRequestPermission: () -> Unit
-) {
+fun PermissionRequestUI(onRequestPermission: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (showRationale) "Camera permission is required for Signify to function." else "Camera permission is required for Signify to function.",
+            text = "Camera permission is required for Signify to function.",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 16.dp),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Button(
-            onClick = onRequestPermission,
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
+        Button(onClick = onRequestPermission) {
             Text("Grant Permission")
         }
     }
 }
-
-
 
 @Composable
 fun RecognizedSignBox(
@@ -349,213 +306,164 @@ fun RecognizedSignBox(
     signHistory: List<String>,
     isTorchOn: Boolean,
     showLandmarks: Boolean,
-    onToggleShowLandmarks: () -> Unit,
-    onClearHistory: () -> Unit,
-    onToggleTorch: () -> Unit,
     isTextToSpeechEnabled: Boolean,
+    onToggleTorch: () -> Unit,
+    onToggleShowLandMarks: () -> Unit,
     onToggleTextToSpeech: () -> Unit,
-    onAppendSignToHistory: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(0.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.Transparent)
-            .padding(16.dp)
-
-    ) {
-        Column {
-            // Top row for title and action icons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-
-                ) {
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    IconButton(
-                        onClick = onToggleTorch,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isTorchOn) MaterialTheme.colorScheme.secondary else Color.Transparent) // Changed to MaterialTheme.colorScheme.secondary
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isTorchOn) Icons.Filled.FlashlightOn else Icons.Filled.FlashlightOff,
-                            contentDescription = "Toggle Flashlight",
-                            tint = if (isTorchOn) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current // Changed to MaterialTheme.colorScheme.onSecondary
-                        )
-                    }
-
-                    // Landmark Toggle Button
-                    IconButton(
-                        onClick = onToggleShowLandmarks,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (showLandmarks) MaterialTheme.colorScheme.secondary else Color.Transparent) // Changed to MaterialTheme.colorScheme.secondary
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (showLandmarks) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                            contentDescription = "Toggle Landmark Visibility",
-                            tint = if (showLandmarks) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current // Changed to MaterialTheme.colorScheme.onSecondary
-                        )
-                    }
-
-                    // Text-to-Speech Toggle Button
-                    IconButton(
-                        onClick = onToggleTextToSpeech,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isTextToSpeechEnabled) MaterialTheme.colorScheme.secondary else Color.Transparent) // Changed to MaterialTheme.colorScheme.secondary
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isTextToSpeechEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                            contentDescription = "Toggle Text-to-Speech",
-                            tint = if (isTextToSpeechEnabled) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current // Changed to MaterialTheme.colorScheme.onSecondary
-                        )
-                    }
-
-                    // Add to History Button
-                    IconButton(
-                        onClick = onAppendSignToHistory,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add to History",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    // Clear History Button
-                    AnimatedVisibility(visible = signHistory.isNotEmpty()) {
-                        IconButton(
-                            onClick = onClearHistory,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.error)
-                                .padding(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear History",
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
+    onAppendSignToHistory: () -> Unit,
+    onClearHistory: () -> Unit
+){
+    Column(modifier = modifier.fillMaxWidth().padding(16.dp)){
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
+        ){
+            IconButton(
+                onClick = onToggleTorch,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (isTorchOn) MaterialTheme.colorScheme.secondary else Color.Transparent)
+            ){
+                Icon(
+                    imageVector = if (isTorchOn) Icons.Filled.FlashlightOn else Icons.Filled.FlashlightOff,
+                    contentDescription = "Toggle Flashlight",
+                    tint = if (isTorchOn) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
+                )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 100.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White)
-                    .border(
-                        1.dp,
-                        Color.Black,
-                        RoundedCornerShape(8.dp)
-                    )
-                    .padding(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = "Sign History: ${signHistory.joinToString(" ")}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = Color.Black
+            IconButton(
+                onClick = onToggleShowLandMarks,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (showLandmarks) MaterialTheme.colorScheme.secondary else Color.Transparent)
+            ){
+                Icon(
+                    imageVector = if (showLandmarks) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                    contentDescription = "Toggle Landmark Visibility",
+                    tint = if (showLandmarks) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
+                )
+            }
+            IconButton(
+                onClick = onToggleTextToSpeech,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                    .background(if (isTextToSpeechEnabled) MaterialTheme.colorScheme.secondary else Color.Transparent)
+            ){
+                Icon(
+                    imageVector = if (isTextToSpeechEnabled) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                    contentDescription = "Toggle Text To Speech",
+                    tint = if (isTextToSpeechEnabled) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
+                )
+            }
+            IconButton(
+                onClick = onAppendSignToHistory,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            ){
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add to Sign History",
+                    tint = Color.White
+                )
+            }
+            AnimatedVisibility(visible = signHistory.isNotEmpty()) {
+                IconButton(
+                    onClick = onClearHistory,
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.error)
+                ){
+                    Icon(
+                        imageVector = Icons.Filled.FormatClear,
+                        contentDescription = "Clear History",
+                        tint = Color.White
                     )
                 }
             }
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+                .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
+                .padding(12.dp)
+        ){
+            Text(
+                text = "Sign History: ${signHistory.joinToString(" ")}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Black,
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            )
+        }
+
     }
 }
 
 @Composable
 fun HandDetectionOverlay(
     normalizedBoundingBoxes: List<RectF>,
+    landmarkResult: HandLandmarkerResult?,
+    modifier: Modifier = Modifier,
+    currentCameraLens: Int,
     predictedSign: String,
     predictedSignConfidence: Float,
-    showLandmarks: Boolean,
-    landmarkResult: HandLandmarkerResult?,
-    currentCameraLens: Int,
-    modifier: Modifier = Modifier
+    showLandmarks: Boolean
 ) {
     val context = LocalContext.current
     val yrsaTypeface = remember(context) {
-        ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght)
+        try { ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght) } catch (e: Exception) { Typeface.DEFAULT }
     }
 
-    val landmarkColor = Color.Red
-    val connectionColor = Color.White
-    val textColor = Color.White
     val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
     val lowConfidenceColor = MaterialTheme.colorScheme.error
     val highConfidenceColor = Color.White
+    val outlineColor = if (predictedSignConfidence < 0.60f) lowConfidenceColor else highConfidenceColor
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
-        val firstHandBox = normalizedBoundingBoxes.firstOrNull()
-
+    // Mirror UI if camera front is in use
+    Canvas(modifier = modifier) {
         if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
-            scale(scaleX = -1f, scaleY = 1f, pivot = Offset(canvasWidth / 2f, canvasHeight / 2f)) {
+            scale(scaleX = -1f, scaleY = 1f, pivot = center) {
                 drawHandDetectionVisuals(
-                    normalizedBoundingBoxes, predictedSignConfidence, showLandmarks,
-                    landmarkResult, canvasWidth, canvasHeight, landmarkColor,
-                    connectionColor, lowConfidenceColor, highConfidenceColor
+                    normalizedBoundingBoxes,
+                    landmarkResult,
+                    size.width,
+                    size.height,
+                    outlineColor = outlineColor,
+                    showLandmarks = showLandmarks
                 )
             }
         } else {
             drawHandDetectionVisuals(
-                normalizedBoundingBoxes, predictedSignConfidence, showLandmarks,
-                landmarkResult, canvasWidth, canvasHeight, landmarkColor,
-                connectionColor, lowConfidenceColor, highConfidenceColor
+                normalizedBoundingBoxes,
+                landmarkResult,
+                size.width,
+                size.height,
+                outlineColor = outlineColor,
+                showLandmarks = showLandmarks
             )
         }
 
-        if (predictedSign.isNotEmpty() && predictedSignConfidence > 0 && firstHandBox != null) {
-            val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()}%)"
+        // Setup tooltip (calculate predicted sign text above firshandbox)
+        val firstHandBox = normalizedBoundingBoxes.firstOrNull()
+        if (predictedSign.isNotEmpty() && firstHandBox != null) {
+            val tooltipText = "$predictedSign (${(predictedSignConfidence * 100).toInt()})%"
             val textPaint = Paint().apply {
-                color = textColor.toArgb()
+                color = Color.White.toArgb()
                 textSize = 40f
-                typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
+                typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
             }
             val textWidth = textPaint.measureText(tooltipText)
             val textHeight = textPaint.descent() - textPaint.ascent()
             var finalTooltipX = if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
-                (1f - firstHandBox.centerX()) * canvasWidth
+                (1f - firstHandBox.centerX()) * size.width
             } else {
-                firstHandBox.centerX() * canvasWidth
+                firstHandBox.centerX() * size.width
             }
-            var finalTooltipY = (firstHandBox.top * canvasHeight) - textHeight / 2 - 30f
-            finalTooltipX = finalTooltipX.coerceIn(textWidth / 2 + 20f, canvasWidth - textWidth / 2 - 20f)
-            finalTooltipY = finalTooltipY.coerceIn(textHeight + 20f, canvasHeight - 20f)
+            var finalTooltipY = (firstHandBox.top * size.height) - textHeight / 2 - 30f
+            finalTooltipX = finalTooltipX.coerceIn(textWidth / 2 + 20f, size.width - textWidth / 2 - 20f)
+            finalTooltipY = finalTooltipY.coerceIn(textHeight + 20f, size.height - 20f)
 
+            // draw roundedrectangle background for tooltip
             drawContext.canvas.nativeCanvas.drawRoundRect(
                 finalTooltipX - textWidth / 2 - 20f,
                 finalTooltipY - textHeight - 10f,
@@ -572,22 +480,20 @@ fun HandDetectionOverlay(
     }
 }
 
+
+// darken overlay around the bounding box, draw hand bounding box, draw hand landmarks (skeletal like)
 private fun DrawScope.drawHandDetectionVisuals(
     normalizedBoundingBoxes: List<RectF>,
-    predictedSignConfidence: Float,
-    showLandmarks: Boolean,
     landmarkResult: HandLandmarkerResult?,
     canvasWidth: Float,
     canvasHeight: Float,
-    landmarkColor: Color,
-    connectionColor: Color,
-    lowConfidenceColor: Color,
-    highConfidenceColor: Color
+    outlineColor: Color,
+    showLandmarks: Boolean // Add this parameter
 ) {
     val overlayColor: Color = Color.Black.copy(alpha = 0.6f)
     val firstHandBox = normalizedBoundingBoxes.firstOrNull()
 
-    // Dim the background
+    // Background Dimming Effect
     if (firstHandBox != null) {
         val left = (firstHandBox.left * canvasWidth).coerceIn(0f, canvasWidth)
         val top = (firstHandBox.top * canvasHeight).coerceIn(0f, canvasHeight)
@@ -599,59 +505,49 @@ private fun DrawScope.drawHandDetectionVisuals(
         drawRect(color = overlayColor, topLeft = Offset(right, top), size = ComposeSize(canvasWidth - right, bottom - top), style = Fill)
     }
 
-    // Draw Bounding Box Outline
+    // Bounding Box Outline with Confidence Color
     if (firstHandBox != null) {
-        // Use the color passed in as a parameter
-        val outlineColor = if (predictedSignConfidence < 0.70f) lowConfidenceColor else highConfidenceColor
-        normalizedBoundingBoxes.forEach { box ->
-            drawRect(
-                color = outlineColor,
-                topLeft = Offset(box.left * canvasWidth, box.top * canvasHeight),
-                size = ComposeSize((box.right - box.left) * canvasWidth, (box.bottom - box.top) * canvasHeight),
-                style = Stroke(width = 6f)
-            )
-        }
+        drawRect(
+            color = outlineColor,
+            topLeft = Offset(firstHandBox.left * canvasWidth, firstHandBox.top * canvasHeight),
+            size = ComposeSize((firstHandBox.right - firstHandBox.left) * canvasWidth, (firstHandBox.bottom - firstHandBox.top) * canvasHeight),
+            style = Stroke(width = 6f)
+        )
     }
 
-    // Draw Hand Landmarks and Connections
+    // Landmarks and Connections
     if (showLandmarks && landmarkResult != null) {
         landmarkResult.landmarks().forEach { handLandmarks ->
             HAND_CONNECTIONS.forEach {
                 val start = handLandmarks[it.first]
                 val end = handLandmarks[it.second]
                 drawLine(
-                    color = connectionColor,
+                    color = Color.White,
                     start = Offset(start.x() * canvasWidth, start.y() * canvasHeight),
                     end = Offset(end.x() * canvasWidth, end.y() * canvasHeight),
                     strokeWidth = 4f
                 )
             }
             handLandmarks.forEach { landmark ->
-                drawCircle(
-                    color = landmarkColor,
-                    radius = 6f,
-                    center = Offset(landmark.x() * canvasWidth, landmark.y() * canvasHeight)
-                )
+                drawCircle(color = Color.Red, radius = 6f, center = Offset(landmark.x() * canvasWidth, landmark.y() * canvasHeight))
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DisplaySampleScreen(
     onDismiss: () -> Unit
 ) {
-    BackHandler(enabled = true) {
-        onDismiss()
-    }
 
     val signs = ('A'..'Z').toList()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ASL Alphabet Samples") },
+                title = { Text("ASL Alphabet Samples", fontFamily = Yrsa) },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -665,7 +561,8 @@ fun DisplaySampleScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.Center
         ) {
             items(signs) { sign ->
                 Column(
@@ -679,9 +576,6 @@ fun DisplaySampleScreen(
                             contentDescription = "Sign for letter $sign",
                             modifier = Modifier.size(100.dp)
                         )
-                    } else {
-                        Text(text = "No image for $sign")
-                        Log.e(TAG, "Drawable for sign '${sign}' not found in map.")
                     }
                     Text(text = sign.toString())
                 }
@@ -702,7 +596,7 @@ fun SignifyDialog(
     showCheckbox: Boolean = false,
     checkboxChecked: Boolean = false,
     onCheckboxCheckedChange: ((Boolean) -> Unit)? = null
-) {
+){
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -724,13 +618,11 @@ fun SignifyDialog(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Checkbox for "Do not show again"
                 if (showCheckbox && onCheckboxCheckedChange != null) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
@@ -740,8 +632,7 @@ fun SignifyDialog(
                         )
                         Text(
                             text = "Do not show again",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Yrsa),
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Yrsa)
                         )
                     }
                 }
@@ -754,7 +645,6 @@ fun SignifyDialog(
                         TextButton(onClick = onDismiss) {
                             Text(dismissButtonText, fontFamily = Yrsa)
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     TextButton(onClick = onConfirm) {
                         Text(confirmButtonText, fontFamily = Yrsa)
@@ -764,7 +654,6 @@ fun SignifyDialog(
         }
     }
 }
-
 
 @Composable
 fun ExitConfirmationDialog(

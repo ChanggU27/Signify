@@ -7,77 +7,72 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.core.view.WindowCompat
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.signify02.ui.SignifyTheme
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+
     private val viewModel: MainViewModel by viewModels()
 
-    // Launcher for POST_NOTIFICATIONS permission
+    //Ask for camera permission
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            viewModel.onPermissionResult(isGranted)
+        }
+
+    // Launcher for notification permission
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
                 Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Notification permission denied. Cannot send reminders.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Notification permission denied.", Toast.LENGTH_LONG).show()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        installSplashScreen()
 
-        // Request POST_NOTIFICATIONS permission
+        // Request notification permission and schedule worker
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-
         scheduleNotificationWorker()
 
         setContent {
-            val systemUiController = rememberSystemUiController()
-            val useDarkIcons = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-
-            SideEffect {
-                systemUiController.setStatusBarColor(color = Color.Transparent, darkIcons = useDarkIcons)
-                systemUiController.setNavigationBarColor(color = Color.Transparent, darkIcons = useDarkIcons)
-            }
-
-            Signify02Theme(dynamicColor = false) {
+            SignifyTheme(dynamicColor = false) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    BackHandler(enabled = true) {
-                        viewModel.onBackPress()
-                    }
 
-                    // --- STATE COLLECTION ---
-                    // We collect all necessary state here at the top level
+                    //Navigation States
+                    val showDisplaySample by viewModel.showDisplaySample.collectAsState()
+                    val showAboutScreen by viewModel.showAboutScreen.collectAsState()
+                    val showPracticeMode by viewModel.showPracticeMode.collectAsState()
+
+                    // Collect dialog states
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
                     val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
                     val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
-                    val displaySample by viewModel.showDisplaySample.collectAsState()
-                    val showPracticeMode by viewModel.showPracticeMode.collectAsState()
-                    val showAboutScreen by viewModel.showAboutScreen.collectAsState()
 
-                    // --- DIALOG LOGIC ---
+                    // This logic will display the dialogs as overlays
                     if (showInitialInfoDialog && hasCameraPermission) {
                         InitialInfoDialog(onDismiss = viewModel::onDismissInitialInfoDialog)
                     }
@@ -92,13 +87,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    BackHandler(enabled = true){
+                        viewModel.onBackPress()
+                    }
 
-                    // --- SCREEN NAVIGATION LOGIC ---
                     when {
                         showAboutScreen -> {
                             AboutScreen(onDismiss = viewModel::onDismissAbout)
                         }
-                        displaySample -> {
+                        showDisplaySample -> {
                             DisplaySampleScreen(onDismiss = viewModel::onDismissInfo)
                         }
                         showPracticeMode -> {
@@ -108,69 +105,70 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         else -> {
+                            //StateFlow for camera permission
+                            val lifecycleOwner = LocalLifecycleOwner.current
+
+                            // StateFlow for mediapipe handlandmark
+                            val handBoundingBoxes by viewModel.handBoundingBoxes.collectAsState()
+                            val landmarkResult by viewModel.handLandmarkerResult.collectAsState()
+                            val currentCameraLens by viewModel.currentCameraLens.collectAsState()
+
+                            // StateFlow for signs
                             val predictedSign by viewModel.predictedSign.collectAsState()
                             val currentConfidence by viewModel.currentConfidence.collectAsState()
+
+                            // StateFlows
                             val signHistory by viewModel.signHistory.collectAsState()
-                            val errorMessage by viewModel.errorMessage.collectAsState()
-                            val handBoundingBoxes by viewModel.handBoundingBoxes.collectAsState()
-                            val showLandmarks by viewModel.showLandmarks.collectAsState()
-                            val landmarkResult by viewModel.handLandmarkerResult.collectAsState()
-                            val isTextToSpeechEnabled by viewModel.isTextToSpeechEnabled.collectAsState()
-                            val currentCameraLens by viewModel.currentCameraLens.collectAsState()
                             val isTorchOn by viewModel.isTorchOn.collectAsState()
+                            val showLandmarks by viewModel.showLandmarks.collectAsState()
+                            val isTextToSpeechEnabled by viewModel.isTextToSpeechEnabled.collectAsState()
+                            val errorMessage by viewModel.errorMessage.collectAsState()
+
+                            // States for Practice Mode
                             val practiceState by viewModel.practiceState.collectAsState()
                             val currentPracticeLetter by viewModel.currentPracticeLetter.collectAsState()
                             val practiceScore by viewModel.practiceScore.collectAsState()
                             val feedback by viewModel.feedback.collectAsState()
                             val showHintImage by viewModel.showHintImage.collectAsState()
 
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                SignifyCameraScreen(
-                                    modifier = Modifier.fillMaxSize(),
-                                    hasCameraPermission = hasCameraPermission,
-                                    predictedSign = predictedSign,
-                                    currentConfidence = currentConfidence,
-                                    signHistory = signHistory,
-                                    handBoundingBoxes = handBoundingBoxes,
-                                    showLandmarks = showLandmarks,
-                                    landmarkResult = landmarkResult,
-                                    currentCameraLens = currentCameraLens,
-                                    isTorchOn = isTorchOn,
-                                    errorMessage = errorMessage,
-                                    onClearHistory = viewModel::clearHistory,
-                                    onToggleShowLandmarks = viewModel::toggleShowLandmarks,
-                                    isTextToSpeechEnabled = isTextToSpeechEnabled,
-                                    onToggleTextToSpeech = viewModel::toggleTextToSpeech,
-                                    onToggleCamera = viewModel::toggleCamera,
-                                    onToggleTorch = viewModel::toggleTorch,
-                                    onDisplaySample = viewModel::onDisplaySample,
-                                    onStartPracticeMode = viewModel::onStartPracticeMode,
-                                    onDisplayAbout = viewModel::onDisplayAbout,
-                                    requestCameraPermission = { onPermissionResult ->
-                                        requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        permissionResultCallback = { isGranted ->
-                                            viewModel.updateCameraPermissionStatus(isGranted)
-                                            onPermissionResult(isGranted)
-                                        }
-                                    },
-                                    setupCamera = viewModel::setupCameraAndHandTracking,
-                                    practiceState = practiceState,
-                                    onAppendSignToHistory = viewModel::appendPredictedSignToHistory
-                                )
-
-                                if (practiceState == PracticeState.PRACTICING) {
-                                    PracticeHUD(
-                                        targetLetter = currentPracticeLetter,
-                                        currentScore = practiceScore,
-                                        feedback = feedback,
-                                        onExit = viewModel::endPractice,
-                                        showHint = showHintImage,
-                                        onHintRequested = viewModel::onHintRequested,
-                                        onPreviousLetter = viewModel::onPreviousLetter,
-                                        onNextLetter = viewModel::onNextLetter
+                            SignifyCameraScreen(
+                                hasCameraPermission = hasCameraPermission,
+                                requestCameraPermission = {
+                                    requestPermissionLauncher.launch(
+                                        Manifest.permission.CAMERA
                                     )
-                                }
-                            }
+                                },
+                                lifecycleOwner = lifecycleOwner,
+                                setupCamera = viewModel::setupCameraAndHandTracking,
+                                handBoundingBoxes = handBoundingBoxes,
+                                landmarkResult = landmarkResult,
+                                currentCameraLens = currentCameraLens,
+                                onToggleCamera = viewModel::toggleCamera,
+                                predictedSign = predictedSign,
+                                predictedSignConfidence = currentConfidence,
+                                signHistory = signHistory,
+                                isTorchOn = isTorchOn,
+                                showLandmarks = showLandmarks,
+                                isTextToSpeechEnabled = isTextToSpeechEnabled,
+                                errorMessage = errorMessage,
+                                onToggleTorch = viewModel::toggleTorch,
+                                onToggleShowLandMarks = viewModel::toggleShowLandmarks,
+                                onToggleTextToSpeech = viewModel::toggleTextToSpeech,
+                                onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
+                                onClearHistory = viewModel::clearHistory,
+                                onDisplaySample = viewModel::onDisplaySample,
+                                onDisplayAbout = viewModel::onDisplayAbout,
+                                onStartPracticeMode = viewModel::onStartPracticeMode,
+                                practiceState = practiceState,
+                                currentPracticeLetter = currentPracticeLetter,
+                                practiceScore = practiceScore,
+                                feedback = feedback,
+                                showHintImage = showHintImage,
+                                onEndPractice = viewModel::endPractice,
+                                onHintRequested = viewModel::onHintRequested,
+                                onPreviousLetter = viewModel::onPreviousLetter,
+                                onNextLetter = viewModel::onNextLetter
+                            )
                         }
                     }
                 }
@@ -178,23 +176,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private var permissionResultCallback: ((Boolean) -> Unit)? = null
-
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            permissionResultCallback?.invoke(isGranted)
-            permissionResultCallback = null
-        }
-
     private fun scheduleNotificationWorker() {
         val notificationWorkRequest =
-            PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
-                .addTag("signify_reminder_notification_work")
+            OneTimeWorkRequestBuilder<NotificationWorker>()
+                .setInitialDelay(5, TimeUnit.SECONDS)
                 .build()
 
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             "SignifyReminderNotification",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingWorkPolicy.KEEP,
             notificationWorkRequest
         )
     }

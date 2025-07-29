@@ -36,12 +36,10 @@ android {
     }
     buildFeatures {
         compose = true
-        viewBinding = true
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -50,10 +48,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.compose.material)
-    implementation(libs.core)
-    implementation(libs.androidx.media3.common.ktx)
-    implementation(libs.protolite.well.known.types)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -62,35 +56,27 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    //CameraX
+    // Splash Screen
+    implementation(libs.androidx.core.splashscreen)
+
+    // CameraX
     implementation (libs.androidx.camera.core)
     implementation (libs.androidx.camera.camera2)
     implementation (libs.androidx.camera.lifecycle)
-    implementation (libs.androidx.camera.video)
     implementation (libs.androidx.camera.view)
-    implementation (libs.androidx.camera.extensions)
 
-    //TensorflowLITE
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.support)
-    implementation(libs.tensorflow.lite.metadata)
-
-    configurations.all {
-        exclude(group = "com.google.ai.edge.litert", module = "litert-api")
-    }
-    //Torch Icon
-    implementation(libs.androidx.material.icons.extended)
-
-    //SplashScreen
-    implementation (libs.androidx.core.splashscreen)
-
-    //Hand Landmark
+    // MediaPipe
     implementation(libs.tasks.vision)
 
-    // System UI Controller
-    implementation(libs.accompanist.systemuicontroller)
+    // Android Controller
+
+    //Icons
+    implementation(libs.androidx.material.icons.extended)
+
+    //TensorflowLite
+    implementation(libs.tensorflow.lite.api)
+    implementation(libs.tensorflow.lite.support)
 
     // Notification
     implementation(libs.androidx.work.runtime.ktx)
-
 }

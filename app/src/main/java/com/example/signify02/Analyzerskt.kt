@@ -5,14 +5,18 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
+//Image analysis
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
-import com.google.mediapipe.tasks.core.BaseOptions as MpBaseOptions // Alias BaseOptions
+
+//Mediapipe handlandmarker
+import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
+
+//TensorflowLite
 import kotlinx.coroutines.flow.StateFlow
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
@@ -23,13 +27,69 @@ import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 
-// ====================================================================================
-// --- Sign Detection Analyzer (TFLite) ---
-// ====================================================================================
-/**
- * Performs sign language detection using a TFLite model.
- * Crops the input based on hand bounding boxes received from another analyzer.
- */
+class HandTrackingAnalyzer(
+    private val context: Context,
+    private val listener: (HandLandmarkerResult) -> Unit
+) : ImageAnalysis.Analyzer {
+
+    private var handLandmarker: HandLandmarker? = null
+
+    //Initialize HandLandmarker
+    init {
+        setupHandLandmarker()
+    }
+
+    // Setup & Configuration
+    private fun setupHandLandmarker() {
+        try {
+            val baseOptionsBuilder = BaseOptions.builder()
+                .setModelAssetPath(HAND_LANDMARKER_MODEL_FILE)
+
+            val optionsBuilder = HandLandmarker.HandLandmarkerOptions.builder()
+                .setBaseOptions(baseOptionsBuilder.build())
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setNumHands(1)
+                .setMinHandDetectionConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
+                .setMinHandPresenceConfidence(0.5f)
+                .setResultListener { result, _ ->
+                    listener(result)
+                }
+                .setErrorListener { error ->
+                    Log.e(TAG, "MediaPipe HandLandmarker Error: ${error.message}")
+                }
+
+            handLandmarker = HandLandmarker.createFromOptions(context, optionsBuilder.build())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing Hand Landmarker", e)
+        }
+    }
+
+    // Image analysis for hand
+    @SuppressLint("UnsafeOptInUsageError")
+    override fun analyze(imageProxy: ImageProxy) {
+        val frameTimestamp = imageProxy.imageInfo.timestamp
+        // Get the rotation degrees from the imageProxy
+        val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+
+        // Convert the image to a bitmap, then rotate it
+        val bitmap = imageProxy.image?.toBitmap()?.rotate(rotationDegrees.toFloat())
+
+        if (bitmap != null) {
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            handLandmarker?.detectAsync(mpImage, frameTimestamp)
+        }
+
+        imageProxy.close()
+    }
+
+    //Resource cleanup
+    fun close() {
+        handLandmarker?.close()
+        handLandmarker = null
+    }
+}
+
 class SignDetectionAnalyzer(
     context: Context,
     private val handBoundingBoxesFlow: StateFlow<List<RectF>>,
@@ -55,34 +115,33 @@ class SignDetectionAnalyzer(
         }
     }
 
-    /** Loads the TFLite model, labels, and configures TF Lite Support helpers. */
     private fun initializeTFLiteInterpreter() {
         try {
+            // Load the TFLite file from assets
             val tfliteModel = FileUtil.loadMappedFile(appContext, SIGN_MODEL_FILE)
             val options = Interpreter.Options()
             tflite = Interpreter(tfliteModel, options)
 
+            // Load Labels.txt from assets
             labels = appContext.assets.open(LABELS_FILE)
                 .bufferedReader()
                 .useLines { lines -> lines.filter { it.isNotBlank() }.toList() }
 
-            // Configure input buffer based on model signature
+            //Setup Configuration based on TFLite model
             val inputTensor = tflite!!.getInputTensor(0)
             val inputShape = inputTensor.shape()
             val inputHeight = inputShape[1]
             val inputWidth = inputShape[2]
             inputImageBuffer = TensorImage(inputTensor.dataType())
 
-            // Define preprocessing steps (must match model training)
+            // Resize and normalize
             imageProcessor = ImageProcessor.Builder()
                 .add(ResizeOp(inputHeight, inputWidth, ResizeOp.ResizeMethod.BILINEAR))
                 .add(NormalizeOp(0f, 255f))
                 .build()
 
-            // Configure output buffer
             val outputTensor = tflite!!.getOutputTensor(0)
             outputProbabilityBuffer = TensorBuffer.createFixedSize(outputTensor.shape(), outputTensor.dataType())
-
             probabilityProcessor = TensorProcessor.Builder().build()
 
             Log.i(TAG, "Sign TFLite interpreter initialized. Input: ${inputShape.contentToString()}, Output: ${outputTensor.shape().contentToString()}")
@@ -94,6 +153,7 @@ class SignDetectionAnalyzer(
         }
     }
 
+    // Image analysis for sign
     @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(imageProxy: ImageProxy) {
         if (!isInitialized || tflite == null) {
@@ -107,48 +167,48 @@ class SignDetectionAnalyzer(
             imageProxy.close(); return
         }
 
-        var bitmapToProcess: Bitmap? = null
-        var fullBitmap: Bitmap? = null
+        var bitmapToProcess: Bitmap?
+        var fullBitmap: Bitmap?
+
 
         try {
+            // Convert image to bitmap and rotate it
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
             fullBitmap = imageProxy.image?.toBitmap()?.rotate(rotationDegrees.toFloat())
 
+            //extract only what is inside the bounding boxes
             if (fullBitmap != null) {
-                // Crop the image to the detected hand region before analysis
                 val croppedBitmap = cropBitmapWithBoundingBox(fullBitmap, firstHandBox)
                 if (croppedBitmap != null) {
                     bitmapToProcess = croppedBitmap
                 } else {
-                    Log.w(TAG, "Sign Analyzer: Cropping failed.")
                     onSignDetected("", 0f); imageProxy.close(); return
                 }
             } else {
-                Log.w(TAG, "Sign Analyzer: Failed to get bitmap.")
                 onSignDetected("", 0f); imageProxy.close(); return
             }
 
-            // --- Run inference on the cropped image ---
-            if (bitmapToProcess != null) {
-                inputImageBuffer?.load(bitmapToProcess)
-                val processedImage = imageProcessor!!.process(inputImageBuffer)
-                tflite?.run(processedImage.buffer, outputProbabilityBuffer!!.buffer.rewind())
+            //loaed cropped bitmap to input buffer
+            inputImageBuffer?.load(bitmapToProcess)
+            val processedImage = imageProcessor!!.process(inputImageBuffer)
 
-                // --- Post-process output ---
-                val probabilities = probabilityProcessor?.process(outputProbabilityBuffer) ?: outputProbabilityBuffer
-                val probabilityArray = probabilities!!.floatArray
-                val maxProbabilityIndex = probabilityArray.indices.maxByOrNull { probabilityArray[it] } ?: -1
+            //Model inference
+            tflite?.run(processedImage.buffer, outputProbabilityBuffer!!.buffer.rewind())
 
-                // --- Report result ---
-                if (maxProbabilityIndex != -1 && maxProbabilityIndex < labels.size) {
-                    val confidence = probabilityArray[maxProbabilityIndex]
-                    val detectedSign = labels[maxProbabilityIndex]
-                    onSignDetected(detectedSign, confidence)
-                } else {
-                    onSignDetected("", 0f)
-                }
+            //Result processing
+            val probabilities = probabilityProcessor?.process(outputProbabilityBuffer) ?: outputProbabilityBuffer
+            val probabilityArray = probabilities!!.floatArray
+            val maxProbabilityIndex = probabilityArray.indices.maxByOrNull { probabilityArray[it] } ?: -1
+
+            // find index with maximum probability from labels
+            if (maxProbabilityIndex != -1 && maxProbabilityIndex < labels.size) {
+                val confidence = probabilityArray[maxProbabilityIndex]
+                val detectedSign = labels[maxProbabilityIndex]
+                // send result back to mainviewmodel
+                onSignDetected(detectedSign, confidence)
+            } else {
+                onSignDetected("", 0f)
             }
-
         } catch (e: Exception) {
             Log.e(TAG, "Error during sign detection analysis", e)
             onSignDetected("", 0f)
@@ -157,106 +217,11 @@ class SignDetectionAnalyzer(
         }
     }
 
+    // Resource cleanup
     fun close() {
         tflite?.close()
         tflite = null
         isInitialized = false
         Log.d(TAG, "SignDetectionAnalyzer closed.")
-    }
-}
-
-
-// ====================================================================================
-// --- Hand Tracking Analyzer (MediaPipe) ---
-// ====================================================================================
-
-/**
- * Performs hand landmark detection using the MediaPipe HandLandmarker Task.
- * Runs in LIVE_STREAM mode, providing results asynchronously via a listener.
- */
-class HandTrackingAnalyzer(
-    private val context: Context,
-    private val listener: (HandLandmarkerResult) -> Unit
-) : ImageAnalysis.Analyzer {
-
-    private var handLandmarker: HandLandmarker? = null
-    private var isInitialized = false
-
-    init {
-        try {
-            setupHandLandmarker()
-            isInitialized = true
-            Log.d(TAG, "HandTrackingAnalyzer initialized.")
-        } catch (e: Exception) {
-            Log.e(TAG, "HandTrackingAnalyzer init failed", e)
-        }
-    }
-
-
-    private fun setupHandLandmarker() {
-        try {
-            val baseOptionsBuilder = MpBaseOptions.builder()
-                .setModelAssetPath(HAND_LANDMARKER_MODEL_FILE)
-
-            // Specific options for HandLandmarker
-            val optionsBuilder = HandLandmarker.HandLandmarkerOptions.builder()
-                .setBaseOptions(baseOptionsBuilder.build())
-                .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumHands(1) // Max hands to detect
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
-                .setResultListener { result: HandLandmarkerResult, _: MPImage -> // Called with results
-                    listener(result) // Pass results back to ViewModel
-                }
-                .setErrorListener { error: RuntimeException -> // Called on internal errors
-                    Log.e(TAG, "MediaPipe HandLandmarker Error: ${error.message}")
-                }
-
-            handLandmarker = HandLandmarker.createFromOptions(context, optionsBuilder.build())
-            Log.i(TAG, "Hand Landmarker initialized.")
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error initializing Hand Landmarker", e)
-            close()
-            throw e
-        }
-    }
-
-    @SuppressLint("UnsafeOptInUsageError")
-    override fun analyze(imageProxy: ImageProxy) {
-        if (!isInitialized || handLandmarker == null) {
-            imageProxy.close(); return
-        }
-
-        val frameTimestamp = imageProxy.imageInfo.timestamp
-        val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-
-        // Convert frame to Bitmap
-        val bitmap = imageProxy.image?.toBitmap()?.rotate(rotationDegrees.toFloat())
-
-        if (bitmap == null) {
-            Log.w(TAG, "Hand Analyzer: Bitmap conversion failed.")
-            imageProxy.close(); return
-        }
-
-        try {
-            // Convert Bitmap to MediaPipe's MPImage format
-            val mpImage = BitmapImageBuilder(bitmap).build()
-
-            // Run detection asynchronously. Results arrive at the ResultListener.
-            handLandmarker?.detectAsync(mpImage, frameTimestamp)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error during hand detection analysis", e)
-        } finally {
-            imageProxy.close()
-        }
-    }
-
-    fun close() {
-        handLandmarker?.close()
-        handLandmarker = null
-        isInitialized = false
-        Log.d(TAG, "HandTrackingAnalyzer closed.")
     }
 }

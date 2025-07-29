@@ -18,23 +18,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-
+import com.example.signify02.ui.Yrsa
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
     onDismiss: () -> Unit
-) {
+){
     val context = LocalContext.current
     val versionName = remember{
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        packageInfo.versionName
+        try{
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName
+        } catch (e: Exception) { "N/A"}
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About Signify") },
+                title = { Text("About Signify", fontFamily = Yrsa) },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -42,7 +44,7 @@ fun AboutScreen(
                 }
             )
         }
-    ) { padding ->
+    ){ padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -50,81 +52,54 @@ fun AboutScreen(
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        ){
             Spacer(modifier = Modifier.height(24.dp))
-
-            // App Icon
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = "App Icon",
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Signify",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
-
             Text(
-                text = "Version $versionName",
+                text = "Version: $versionName",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Signify is a real-time American Sign Language (ASL) alphabet detection app designed to bridge communication gaps.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            // Developers Section
+            HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
             InfoSection(
                 icon = Icons.Filled.Code,
                 title = "Developers",
-                content = "Castillon, Karl Emerson\n" +
-                        "Manghi, Darius-Xavier\n" +
-                        "Mojagan, Clark Adrian\n" +
-                        "Villa, John Jacob T."
+                content = "Castillon, Karl Emerson\nManghi, Darius-Xavier\nMojagan, Clark Adrian\nVilla, John Jacob T."
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Technology Section
+            Spacer(modifier = Modifier.height(60.dp))
             InfoSection(
                 icon = Icons.Filled.LaptopMac,
                 title = "Technology",
-                content = "App: Kotlin & Jetpack Compose\n" +
-                        "AI Model Training: Python & TensorFlow\n" +
-                        "AI Models: TensorFlow Lite & MediaPipe"
+                content = "App: Kotlin & Jetpack Compose\nAI Model Training: Python & TensorFlow\nAI Models: TensorFlow Lite & MediaPipe"
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun InfoSection(icon: ImageVector, title: String, content: String) {
+private fun InfoSection(icon: ImageVector, title: String, content: String){
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+    ){
+        Row(verticalAlignment = Alignment.CenterVertically){
             Icon(
                 imageVector = icon,
                 contentDescription = "$title Icon",
@@ -134,7 +109,7 @@ private fun InfoSection(icon: ImageVector, title: String, content: String) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
