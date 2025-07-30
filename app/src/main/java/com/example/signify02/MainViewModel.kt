@@ -149,11 +149,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // New function to handle the language change
+    // handle language change
     fun setTtsLanguage(locale: Locale) {
         _ttsLocale.value = locale
         tts?.language = locale
-        saveTtsLanguagePreference(locale) // Save the new choice
+        saveTtsLanguagePreference(locale)
     }
 
 
@@ -297,8 +297,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         delay(10)
                         speakSignHistory()
                         clearHistory()
-                        predictedSign.value = ""
-                        currentConfidence.value = 0f
+
                     }
                 } else {
                     predictedSign.value = sign
