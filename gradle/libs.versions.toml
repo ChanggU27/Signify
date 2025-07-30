@@ -10,10 +10,10 @@ activityCompose = "1.10.1"
 composeBom = "2025.07.00"
 coreSplashscreen = "1.0.1"
 cameraCore = "1.5.0-beta02"
-materialIconsExtended = ")"
+materialIconsExtended = "1.7.8"
 
 #Mediapipe
-tasksVision = "0.20230731"
+tasksVision = "0.10.26"
 
 #TensorflowLite
 tensorflowLiteApi = "2.17.0"

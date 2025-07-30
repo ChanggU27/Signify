@@ -84,13 +84,13 @@ val SignDrawables = mapOf(
     'P' to R.drawable.p_test, 'Q' to R.drawable.q_test, 'R' to R.drawable.r_test,
     'S' to R.drawable.s_test, 'T' to R.drawable.t_test, 'U' to R.drawable.u_test,
     'V' to R.drawable.v_test, 'W' to R.drawable.w_test, 'X' to R.drawable.x_test,
-    'Y' to R.drawable.y_test, 'Z' to R.drawable.z_test,
+    'Y' to R.drawable.y_test, 'Z' to R.drawable.z_test, '_' to R.drawable.space_test
 )
 
 @Composable
 fun SignifyCameraScreen(
     hasCameraPermission: Boolean,
-    requestCameraPermission: () -> Unit,
+    requestCameraPermission: (onPermissionResult: (Boolean) -> Unit) -> Unit,
     lifecycleOwner: LifecycleOwner,
     setupCamera: (Context, LifecycleOwner, Preview.SurfaceProvider) -> Unit,
     handBoundingBoxes: List<RectF>,
@@ -102,16 +102,13 @@ fun SignifyCameraScreen(
     signHistory: List<String>,
     isTorchOn: Boolean,
     showLandmarks: Boolean,
-    isTextToSpeechEnabled: Boolean,
     errorMessage: String?,
     onToggleTorch: () -> Unit,
-    onToggleShowLandMarks: () -> Unit,
-    onToggleTextToSpeech: () -> Unit,
+    onToggleShowLandmarks: () -> Unit,
     onAppendSignToHistory: () -> Unit,
     onClearHistory: () -> Unit,
     onDisplaySample: () -> Unit,
     onDisplayAbout: () -> Unit,
-
     onStartPracticeMode: () -> Unit,
     practiceState: MainViewModel.PracticeState,
     currentPracticeLetter: String?,
@@ -121,8 +118,8 @@ fun SignifyCameraScreen(
     onEndPractice: () -> Unit,
     onHintRequested: () -> Unit,
     onPreviousLetter: () -> Unit,
-    onNextLetter: () -> Unit
-
+    onNextLetter: () -> Unit,
+    onSpeakSignHistory: () -> Unit
 ) {
     val context = LocalContext.current
     var previewView: PreviewView? by remember { mutableStateOf(null) }
@@ -226,7 +223,7 @@ fun SignifyCameraScreen(
                         }
                     }
                     Text(
-                        text = "Signify",
+                        text = if (practiceState == MainViewModel.PracticeState.PRACTICING) "ASL Practice" else "Signify",
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -251,12 +248,12 @@ fun SignifyCameraScreen(
                             .padding(8.dp)
                             .align(Alignment.BottomCenter)
                     ){
-                        Text(text = message, color = MaterialTheme.colorScheme.errorContainer,
+                        Text(text = message, color = MaterialTheme.colorScheme.onErrorContainer,
                             modifier = Modifier.align(Alignment.Center))
                     }
                 }
             } else {
-                PermissionRequestUI(onRequestPermission = requestCameraPermission)
+                PermissionRequestUI(onRequestPermission = { requestCameraPermission {} })
             }
         }
 
@@ -266,22 +263,22 @@ fun SignifyCameraScreen(
                 signHistory = signHistory,
                 isTorchOn = isTorchOn,
                 showLandmarks = showLandmarks,
-                isTextToSpeechEnabled = isTextToSpeechEnabled,
                 onToggleTorch = onToggleTorch,
-                onToggleShowLandMarks = onToggleShowLandMarks,
-                onToggleTextToSpeech = onToggleTextToSpeech,
+                onToggleShowLandmarks = onToggleShowLandmarks,
                 onAppendSignToHistory = onAppendSignToHistory,
-                onClearHistory = onClearHistory
+                onClearHistory = onClearHistory,
+                onSpeakSignHistory = onSpeakSignHistory
             )
         }
-
     }
 }
 
 
 //Camera permission UI
 @Composable
-fun PermissionRequestUI(onRequestPermission: () -> Unit) {
+fun PermissionRequestUI(
+    onRequestPermission: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -306,12 +303,11 @@ fun RecognizedSignBox(
     signHistory: List<String>,
     isTorchOn: Boolean,
     showLandmarks: Boolean,
-    isTextToSpeechEnabled: Boolean,
     onToggleTorch: () -> Unit,
-    onToggleShowLandMarks: () -> Unit,
-    onToggleTextToSpeech: () -> Unit,
+    onToggleShowLandmarks: () -> Unit,
     onAppendSignToHistory: () -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    onSpeakSignHistory: () -> Unit
 ){
     Column(modifier = modifier.fillMaxWidth().padding(16.dp)){
         Row(
@@ -331,7 +327,7 @@ fun RecognizedSignBox(
                 )
             }
             IconButton(
-                onClick = onToggleShowLandMarks,
+                onClick = onToggleShowLandmarks, // Corrected typo
                 modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
                     .background(if (showLandmarks) MaterialTheme.colorScheme.secondary else Color.Transparent)
             ){
@@ -341,15 +337,13 @@ fun RecognizedSignBox(
                     tint = if (showLandmarks) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
                 )
             }
-            IconButton(
-                onClick = onToggleTextToSpeech,
+            IconButton(onClick = onSpeakSignHistory,
                 modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (isTextToSpeechEnabled) MaterialTheme.colorScheme.secondary else Color.Transparent)
-            ){
+                    .background(Color.Yellow)) {
                 Icon(
-                    imageVector = if (isTextToSpeechEnabled) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                    contentDescription = "Toggle Text To Speech",
-                    tint = if (isTextToSpeechEnabled) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
+                    imageVector = Icons.Default.RecordVoiceOver,
+                    contentDescription = "Speak Sign History",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
             IconButton(
@@ -370,7 +364,7 @@ fun RecognizedSignBox(
                         .background(MaterialTheme.colorScheme.error)
                 ){
                     Icon(
-                        imageVector = Icons.Filled.FormatClear,
+                        imageVector = Icons.Filled.Clear,
                         contentDescription = "Clear History",
                         tint = Color.White
                     )
@@ -381,7 +375,7 @@ fun RecognizedSignBox(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
+                .height(50.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.White)
                 .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
@@ -394,7 +388,6 @@ fun RecognizedSignBox(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             )
         }
-
     }
 }
 
@@ -410,7 +403,7 @@ fun HandDetectionOverlay(
 ) {
     val context = LocalContext.current
     val yrsaTypeface = remember(context) {
-        try { ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght) } catch (e: Exception) { Typeface.DEFAULT }
+        try { ResourcesCompat.getFont(context, R.font.yrsa_variablefont_wght) } catch (_: Exception) { Typeface.DEFAULT }
     }
 
     val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
@@ -418,7 +411,6 @@ fun HandDetectionOverlay(
     val highConfidenceColor = Color.White
     val outlineColor = if (predictedSignConfidence < 0.60f) lowConfidenceColor else highConfidenceColor
 
-    // Mirror UI if camera front is in use
     Canvas(modifier = modifier) {
         if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
             scale(scaleX = -1f, scaleY = 1f, pivot = center) {
@@ -442,10 +434,10 @@ fun HandDetectionOverlay(
             )
         }
 
-        // Setup tooltip (calculate predicted sign text above firshandbox)
+        // tooltip drawing logic
         val firstHandBox = normalizedBoundingBoxes.firstOrNull()
         if (predictedSign.isNotEmpty() && firstHandBox != null) {
-            val tooltipText = "$predictedSign (${(predictedSignConfidence * 100).toInt()})%"
+            val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()})%"
             val textPaint = Paint().apply {
                 color = Color.White.toArgb()
                 textSize = 40f
@@ -463,7 +455,6 @@ fun HandDetectionOverlay(
             finalTooltipX = finalTooltipX.coerceIn(textWidth / 2 + 20f, size.width - textWidth / 2 - 20f)
             finalTooltipY = finalTooltipY.coerceIn(textHeight + 20f, size.height - 20f)
 
-            // draw roundedrectangle background for tooltip
             drawContext.canvas.nativeCanvas.drawRoundRect(
                 finalTooltipX - textWidth / 2 - 20f,
                 finalTooltipY - textHeight - 10f,
@@ -488,7 +479,7 @@ private fun DrawScope.drawHandDetectionVisuals(
     canvasWidth: Float,
     canvasHeight: Float,
     outlineColor: Color,
-    showLandmarks: Boolean // Add this parameter
+    showLandmarks: Boolean
 ) {
     val overlayColor: Color = Color.Black.copy(alpha = 0.6f)
     val firstHandBox = normalizedBoundingBoxes.firstOrNull()
@@ -542,7 +533,7 @@ fun DisplaySampleScreen(
     onDismiss: () -> Unit
 ) {
 
-    val signs = ('A'..'Z').toList()
+    val signs = ('A'..'Z').toList() + '_'
 
     Scaffold(
         topBar = {
@@ -577,7 +568,7 @@ fun DisplaySampleScreen(
                             modifier = Modifier.size(100.dp)
                         )
                     }
-                    Text(text = sign.toString())
+                    Text(text = if (sign == '_') "Space" else sign.toString())
                 }
             }
         }
@@ -588,14 +579,14 @@ fun DisplaySampleScreen(
 fun SignifyDialog(
     onDismissRequest: () -> Unit,
     title: String,
-    text: String,
     confirmButtonText: String,
     onConfirm: () -> Unit,
     dismissButtonText: String? = null,
     onDismiss: (() -> Unit)? = null,
     showCheckbox: Boolean = false,
     checkboxChecked: Boolean = false,
-    onCheckboxCheckedChange: ((Boolean) -> Unit)? = null
+    onCheckboxCheckedChange: ((Boolean) -> Unit)? = null,
+    content: @Composable () -> Unit
 ){
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
@@ -608,16 +599,13 @@ fun SignifyDialog(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = Yrsa),
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = Yrsa, fontWeight = FontWeight.Bold, fontSize = 24.sp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Yrsa),
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+
+                content()
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (showCheckbox && onCheckboxCheckedChange != null) {
@@ -663,12 +651,19 @@ fun ExitConfirmationDialog(
     SignifyDialog(
         onDismissRequest = onDismiss,
         title = "Exit Signify?",
-        text = "Are you sure you want to exit the app?",
         confirmButtonText = "Yes",
         onConfirm = onConfirm,
         dismissButtonText = "No",
         onDismiss = onDismiss
-    )
+    ) {
+
+        Text(
+            text = "Are you sure you want to exit the app?",
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = Yrsa),
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
 
 @Composable
@@ -679,12 +674,34 @@ fun InitialInfoDialog(
 
     SignifyDialog(
         onDismissRequest = { onDismiss(doNotShowAgainChecked) },
-        title = "REMINDER",
-        text = "To achieve the most accurate results, please use a plain, well-lit background.",
+        title = "How to Use",
         confirmButtonText = "Got it!",
         onConfirm = { onDismiss(doNotShowAgainChecked) },
         showCheckbox = true,
         checkboxChecked = doNotShowAgainChecked,
         onCheckboxCheckedChange = { doNotShowAgainChecked = it }
-    )
+    ) {
+        Spacer(modifier = Modifier.height(30.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.PhotoCamera, contentDescription = "Camera Icon", modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Point the camera at a hand to detect and translate ASL (Alphabet) in real-time.", fontFamily = Yrsa)
+            }
+            Spacer(modifier = Modifier.height(25.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Add, contentDescription = "Add Icon", tint = Color.White, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary), )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Press the '+' button to add letters to your sign history.", fontFamily = Yrsa)
+            }
+            Spacer(modifier = Modifier.height(25.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.SpaceBar, contentDescription = "Spacebar Icon", modifier = Modifier.size(40.dp) )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("Make the 'space' sign to speak the word and clear the history.", fontFamily = Yrsa)
+            }
+        }
+    }
 }

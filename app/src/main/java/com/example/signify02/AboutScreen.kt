@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.signify02.ui.Yrsa
+import java.util.Calendar
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +32,7 @@ fun AboutScreen(
         try{
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             packageInfo.versionName
-        } catch (e: Exception) { "N/A"}
+        } catch (_: Exception) { "N/A"}
     }
 
     Scaffold(
@@ -83,12 +85,20 @@ fun AboutScreen(
                 title = "Developers",
                 content = "Castillon, Karl Emerson\nManghi, Darius-Xavier\nMojagan, Clark Adrian\nVilla, John Jacob T."
             )
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(90.dp))
             InfoSection(
                 icon = Icons.Filled.LaptopMac,
                 title = "Technology",
                 content = "App: Kotlin & Jetpack Compose\nAI Model Training: Python & TensorFlow\nAI Models: TensorFlow Lite & MediaPipe"
             )
+            Spacer(modifier = Modifier.height(100.dp))
+            Text(
+                text = "© ${Calendar.getInstance().get(Calendar.YEAR)} Signify. All Rights Reserved.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(70.dp))
         }
     }
 }
@@ -114,7 +124,7 @@ private fun InfoSection(icon: ImageVector, title: String, content: String){
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(11.dp))
         Text(
             text = content,
             style = MaterialTheme.typography.bodyLarge,

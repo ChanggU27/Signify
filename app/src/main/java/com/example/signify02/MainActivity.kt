@@ -18,8 +18,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.signify02.ui.SignifyTheme
 import java.util.concurrent.TimeUnit
@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        installSplashScreen()
+        installSplashScreen() // Correctly placed installSplashScreen
 
         // Request notification permission and schedule worker
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -121,7 +121,6 @@ class MainActivity : ComponentActivity() {
                             val signHistory by viewModel.signHistory.collectAsState()
                             val isTorchOn by viewModel.isTorchOn.collectAsState()
                             val showLandmarks by viewModel.showLandmarks.collectAsState()
-                            val isTextToSpeechEnabled by viewModel.isTextToSpeechEnabled.collectAsState()
                             val errorMessage by viewModel.errorMessage.collectAsState()
 
                             // States for Practice Mode
@@ -133,10 +132,8 @@ class MainActivity : ComponentActivity() {
 
                             SignifyCameraScreen(
                                 hasCameraPermission = hasCameraPermission,
-                                requestCameraPermission = {
-                                    requestPermissionLauncher.launch(
-                                        Manifest.permission.CAMERA
-                                    )
+                                requestCameraPermission = { onResult ->
+                                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
                                 },
                                 lifecycleOwner = lifecycleOwner,
                                 setupCamera = viewModel::setupCameraAndHandTracking,
@@ -149,11 +146,9 @@ class MainActivity : ComponentActivity() {
                                 signHistory = signHistory,
                                 isTorchOn = isTorchOn,
                                 showLandmarks = showLandmarks,
-                                isTextToSpeechEnabled = isTextToSpeechEnabled,
                                 errorMessage = errorMessage,
                                 onToggleTorch = viewModel::toggleTorch,
-                                onToggleShowLandMarks = viewModel::toggleShowLandmarks,
-                                onToggleTextToSpeech = viewModel::toggleTextToSpeech,
+                                onToggleShowLandmarks = viewModel::toggleShowLandmarks, // Corrected typo
                                 onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
                                 onClearHistory = viewModel::clearHistory,
                                 onDisplaySample = viewModel::onDisplaySample,
@@ -167,7 +162,8 @@ class MainActivity : ComponentActivity() {
                                 onEndPractice = viewModel::endPractice,
                                 onHintRequested = viewModel::onHintRequested,
                                 onPreviousLetter = viewModel::onPreviousLetter,
-                                onNextLetter = viewModel::onNextLetter
+                                onNextLetter = viewModel::onNextLetter,
+                                onSpeakSignHistory = viewModel::speakSignHistory
                             )
                         }
                     }
@@ -178,13 +174,12 @@ class MainActivity : ComponentActivity() {
 
     private fun scheduleNotificationWorker() {
         val notificationWorkRequest =
-            OneTimeWorkRequestBuilder<NotificationWorker>()
-                .setInitialDelay(5, TimeUnit.SECONDS)
+            PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
                 .build()
 
-        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
             "SignifyReminderNotification",
-            ExistingWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.KEEP,
             notificationWorkRequest
         )
     }

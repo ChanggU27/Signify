@@ -75,7 +75,10 @@ fun PracticeHUD(
     onPreviousLetter: () -> Unit,
     onNextLetter: () -> Unit
 ) {
-    val currentHintDrawable = targetLetter?.uppercase()?.let { SignDrawables[it.single()] }
+    val currentHintDrawable = targetLetter?.let { letter ->
+        val key = if (letter.equals("space", ignoreCase = true)) '_' else letter.first()
+        SignDrawables[key]
+    }
 
     // Inside practice mode
     Box(modifier = modifier.fillMaxSize()) {
@@ -143,6 +146,8 @@ fun PracticeHUD(
         ) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next Letter", tint = Color.White, modifier = Modifier.size(36.dp))
         }
+
+        // Display Hint Image
         AnimatedVisibility(
             visible = showHint && currentHintDrawable != null,
             enter = fadeIn(animationSpec = tween(300)),
@@ -162,6 +167,8 @@ fun PracticeHUD(
                 }
             }
         }
+
+        // Show CORRECT!
         AnimatedVisibility(
             visible = feedback != null && feedback.isCorrect,
             enter = fadeIn(animationSpec = tween(300)),
