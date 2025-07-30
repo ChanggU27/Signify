@@ -73,18 +73,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val feedback = MutableStateFlow<Feedback?>(null)
     val showHintImage = MutableStateFlow(false)
 
+    // --- TTS Locale ---
+    private val _ttsLocale = MutableStateFlow(getTtsLanguagePreference())
+
+
     enum class PracticeState { NOT_STARTED, PRACTICING }
     data class Feedback(val isCorrect: Boolean, val timestamp: Long = System.currentTimeMillis())
 
+
     //initializationm
     init {
+        _ttsLocale.value = getTtsLanguagePreference()
         initializeTextToSpeech(application)
         initializeLandmarkModel(application)
     }
 
+
     private fun initializeTextToSpeech(application: Application) {
         tts = TextToSpeech(application) { status ->
-            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.US
+            if (status == TextToSpeech.SUCCESS) {
+                // whatever was saved in the preference, load it at start
+                tts?.language = _ttsLocale.value
+            }
         }
     }
 
@@ -137,6 +147,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val currentWord = signHistory.value.joinToString("")
             tts?.speak(currentWord, TextToSpeech.QUEUE_FLUSH, null, null)
         }
+    }
+
+    // New function to handle the language change
+    fun setTtsLanguage(locale: Locale) {
+        _ttsLocale.value = locale
+        tts?.language = locale
+        saveTtsLanguagePreference(locale) // Save the new choice
     }
 
 
@@ -266,15 +283,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val maxIndex = outputProbabilities[0].indexOfFirst { it == maxConfidence }
             val sign = labels.getOrElse(maxIndex) { "" }
 
-
-            if (sign.equals("space", ignoreCase = true)) {
-                speakSignHistory()      // 1. spek the word 1st
-                clearHistory()          // 2. after tyhat clear the history
-                predictedSign.value = "" // 3. then clear the prediction from ui
-                currentConfidence.value = 0f
-                return
-            }
-
             if (practiceState.value == PracticeState.PRACTICING) {
                 if (sign.equals(currentPracticeLetter.value, ignoreCase = true)) {
                     practiceScore.value++
@@ -282,8 +290,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     triggerFeedback(true)
                 }
             } else {
-                predictedSign.value = sign
-                currentConfidence.value = maxConfidence
+                if (sign.equals("space", ignoreCase = true)) {
+                    viewModelScope.launch {
+                        predictedSign.value = "space"
+                        currentConfidence.value = maxConfidence
+                        delay(10)
+                        speakSignHistory()
+                        clearHistory()
+                        predictedSign.value = ""
+                        currentConfidence.value = 0f
+                    }
+                } else {
+                    predictedSign.value = sign
+                    currentConfidence.value = maxConfidence
+                }
             }
         } else if (practiceState.value != PracticeState.PRACTICING) {
             predictedSign.value = ""
@@ -346,17 +366,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private val prefsName = "SignifyPrefs"
-    private val keyShowInitialInfoDialog = "show_initial_info_dialog"
+    private val PREFS_NAME = "SignifyPrefs"
+    private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
+    private val KEY_TTS_LANGUAGE = "tts_language" // New key
+    private val KEY_TTS_COUNTRY = "tts_country"   // New key
 
     private fun getShowInitialInfoDialogPreference(): Boolean {
-        val prefs = getApplication<Application>().getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-        return prefs.getBoolean(keyShowInitialInfoDialog, true)
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, true)
     }
 
     private fun saveShowInitialInfoDialogPreference(show: Boolean) {
-        val prefs = getApplication<Application>().getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-        prefs.edit { putBoolean(keyShowInitialInfoDialog, show) }
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, show) }
+    }
+
+    private fun saveTtsLanguagePreference(locale: Locale) {
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit {
+            putString(KEY_TTS_LANGUAGE, locale.language)
+            putString(KEY_TTS_COUNTRY, locale.country)
+        }
+    }
+
+    private fun getTtsLanguagePreference(): Locale {
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val language = prefs.getString(KEY_TTS_LANGUAGE, Locale.US.language) ?: Locale.US.language
+        val country = prefs.getString(KEY_TTS_COUNTRY, Locale.US.country) ?: Locale.US.country
+        return Locale(language, country)
+    }
+
+    fun deleteLastSignFromHistory() {
+        if (signHistory.value.isNotEmpty()) {
+            signHistory.value = signHistory.value.dropLast(1)
+        }
     }
 
 

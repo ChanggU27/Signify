@@ -1,6 +1,7 @@
 package com.example.signify02
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -10,12 +11,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -44,13 +47,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         installSplashScreen() // Correctly placed installSplashScreen
 
         // Request notification permission and schedule worker
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ){
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         scheduleNotificationWorker()
@@ -163,7 +169,9 @@ class MainActivity : ComponentActivity() {
                                 onHintRequested = viewModel::onHintRequested,
                                 onPreviousLetter = viewModel::onPreviousLetter,
                                 onNextLetter = viewModel::onNextLetter,
-                                onSpeakSignHistory = viewModel::speakSignHistory
+                                onSpeakSignHistory = viewModel::speakSignHistory,
+                                onSetTtsLanguage = viewModel::setTtsLanguage,
+                                onDeleteLastSign = viewModel::deleteLastSignFromHistory,
                             )
                         }
                     }

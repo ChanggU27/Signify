@@ -54,6 +54,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +66,9 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.core.content.res.ResourcesCompat
+import androidx.compose.material.icons.automirrored.filled.Backspace
+
+import java.util.Locale
 
 val HAND_CONNECTIONS = listOf(
     Pair(0, 1), Pair(1, 2), Pair(2, 3), Pair(3, 4),         // Thumb
@@ -119,7 +123,9 @@ fun SignifyCameraScreen(
     onHintRequested: () -> Unit,
     onPreviousLetter: () -> Unit,
     onNextLetter: () -> Unit,
-    onSpeakSignHistory: () -> Unit
+    onSpeakSignHistory: () -> Unit,
+    onSetTtsLanguage: (Locale) -> Unit,
+    onDeleteLastSign: () -> Unit
 ) {
     val context = LocalContext.current
     var previewView: PreviewView? by remember { mutableStateOf(null) }
@@ -220,6 +226,36 @@ fun SignifyCameraScreen(
                                     menuExpanded = false
                                 }
                             )
+
+                            var languageMenuExpanded by remember { mutableStateOf(false)}
+                            Box {
+                                DropdownMenuItem(
+                                    text = { Text("Voice Accents", fontFamily = Yrsa)},
+                                    onClick = { languageMenuExpanded = true},
+                                    trailingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowRight, "Open Language Menu")}
+                                )
+                                DropdownMenu(
+                                    expanded = languageMenuExpanded,
+                                    onDismissRequest = { languageMenuExpanded = false}
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("US English")},
+                                        onClick = {
+                                            onSetTtsLanguage(Locale.US)
+                                            languageMenuExpanded = false
+                                            menuExpanded = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("UK English")},
+                                        onClick = {
+                                            onSetTtsLanguage(Locale.UK)
+                                            languageMenuExpanded = false
+                                            menuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                     Text(
@@ -267,7 +303,8 @@ fun SignifyCameraScreen(
                 onToggleShowLandmarks = onToggleShowLandmarks,
                 onAppendSignToHistory = onAppendSignToHistory,
                 onClearHistory = onClearHistory,
-                onSpeakSignHistory = onSpeakSignHistory
+                onSpeakSignHistory = onSpeakSignHistory,
+                onDeleteLastSign = onDeleteLastSign
             )
         }
     }
@@ -307,7 +344,8 @@ fun RecognizedSignBox(
     onToggleShowLandmarks: () -> Unit,
     onAppendSignToHistory: () -> Unit,
     onClearHistory: () -> Unit,
-    onSpeakSignHistory: () -> Unit
+    onSpeakSignHistory: () -> Unit,
+    onDeleteLastSign: () -> Unit
 ){
     Column(modifier = modifier.fillMaxWidth().padding(16.dp)){
         Row(
@@ -357,6 +395,16 @@ fun RecognizedSignBox(
                     tint = Color.White
                 )
             }
+
+            AnimatedVisibility(visible = signHistory.isNotEmpty()) {
+                IconButton(onClick = onDeleteLastSign) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Backspace,
+                        contentDescription = "Delete Last Sign"
+                    )
+                }
+            }
+
             AnimatedVisibility(visible = signHistory.isNotEmpty()) {
                 IconButton(
                     onClick = onClearHistory,
@@ -700,7 +748,7 @@ fun InitialInfoDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.SpaceBar, contentDescription = "Spacebar Icon", modifier = Modifier.size(40.dp) )
                 Spacer(modifier = Modifier.width(16.dp))
-                Text("Make the 'space' sign to speak the word and clear the history.", fontFamily = Yrsa)
+                Text("Make the 'space' sign to make Signify speak the word and clear the history.", fontFamily = Yrsa)
             }
         }
     }
