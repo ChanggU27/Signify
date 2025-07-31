@@ -186,6 +186,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearHistory() {
         signHistory.value = emptyList()
         lastAppendedSign = null
+        autoSpeakJob?.cancel()
     }
 
     fun speakSignHistory() {
@@ -346,6 +347,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             predictedSign.value = sign
             currentConfidence.value = maxConfidence
 
+            // If the sign is no longer 'space', cancel the speak timer
             if (!sign.equals("space", ignoreCase = true)) {
                 autoSpeakJob?.cancel()
             }
@@ -363,47 +365,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             predictedSign.value = ""
             currentConfidence.value = 0f
             autoAppendJob?.cancel()
+            autoSpeakJob?.cancel()
             currentlyTimingSign = null
             lastAppendedSign = null
         }
     }
 
-    private fun handleAutoAppend(currentSign: String){
-        //auto speak timer for space
-        if (currentSign.equals("space", ignoreCase = true)) {
-            autoAppendJob?.cancel()
+    private fun handleAutoAppend(currentSign: String) {
+        if (!isAutoAppendEnabled.value) return
 
-            // only start a new timer if one isn't already running
-            if (autoSpeakJob == null || autoSpeakJob?.isActive == false) {
-                autoSpeakJob = viewModelScope.launch {
-                    delay(1500)
+        if (currentSign == currentlyTimingSign) {
+            return
+        }
+
+        // a new sign is detected, so cancel all previous timers
+        autoAppendJob?.cancel()
+        autoSpeakJob?.cancel()
+        currentlyTimingSign = currentSign
+
+        if (currentSign.equals("space", ignoreCase = true)) {
+            // Timer 1: Add a space after 0.5 seconds
+            autoAppendJob = viewModelScope.launch {
+                delay(500)
+                if (predictedSign.value == currentSign) { //check to see if its still holding (sign)
+                    if (signHistory.value.isEmpty() || signHistory.value.last() != " ") {
+                        signHistory.value = signHistory.value + " "
+                        lastAppendedSign = " "
+                    }
+                }
+            }
+            // Timer 2: Speak and clear after 1.5 seconds
+            autoSpeakJob = viewModelScope.launch {
+                delay(1500)
+                if (predictedSign.value == currentSign) { // Check if still holding
                     speakSignHistory()
                     clearHistory()
-
-                    //clear after
                     predictedSign.value = ""
                     currentConfidence.value = 0f
                 }
             }
-            return
-        }
-
-        if (!isAutoAppendEnabled.value) return
-        if (currentSign == currentlyTimingSign || currentSign == lastAppendedSign) {
-            return
-        }
-
-        autoAppendJob?.cancel()
-        currentlyTimingSign = currentSign
-
-        // regular letter, append after .5s of being held
-        autoAppendJob = viewModelScope.launch{
-            delay(500)
-            if (predictedSign.value == currentSign){
-                signHistory.value = signHistory.value + currentSign
-                lastAppendedSign = currentSign
+        } else {
+            // If it's a regular letter, start the normal append timer
+            if (currentSign != lastAppendedSign) {
+                autoAppendJob = viewModelScope.launch {
+                    delay(500)
+                    if (predictedSign.value == currentSign) {
+                        signHistory.value = signHistory.value + currentSign
+                        lastAppendedSign = currentSign
+                    }
+                    currentlyTimingSign = null
+                }
             }
-            currentlyTimingSign = null
         }
     }
 

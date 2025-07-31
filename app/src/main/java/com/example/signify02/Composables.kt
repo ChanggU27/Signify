@@ -437,7 +437,7 @@ fun RecognizedSignBox(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .height(75.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.White)
                 .border(1.dp, Color.Black, RoundedCornerShape(8.dp))

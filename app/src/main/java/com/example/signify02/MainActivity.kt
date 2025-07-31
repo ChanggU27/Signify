@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -37,27 +36,12 @@ class MainActivity : ComponentActivity() {
             viewModel.onPermissionResult(isGranted)
         }
 
-    // Launcher for notification permission
-    private val requestNotificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Notification permission denied.", Toast.LENGTH_LONG).show()
-            }
-        }
 
     // Launcher for photos and video permission
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val requestMediaPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val imagesGranted = permissions[Manifest.permission.READ_MEDIA_IMAGES] ?: false
-            val videosGranted = permissions[Manifest.permission.READ_MEDIA_VIDEO] ?: false
-            if (imagesGranted && videosGranted) {
-                Toast.makeText(this, "Media permissions granted!", Toast.LENGTH_SHORT).show()
-            } else {
-                //empty
-            }
+
         }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -68,12 +52,6 @@ class MainActivity : ComponentActivity() {
 
         requestMediaPermissions()
 
-        // Request notification permission and schedule worker
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ){
-            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
         scheduleNotificationWorker()
 
         setContent {
@@ -212,13 +190,20 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun requestMediaPermissions() {
-        // For modern Android, request granular permissions
-        val permissionsToRequest = arrayOf(
+        // list for all the permissions required
+        val permissionsToRequest = mutableListOf(
             Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO
+            Manifest.permission.READ_MEDIA_VIDEO,
+            Manifest.permission.POST_NOTIFICATIONS
         )
-        if (permissionsToRequest.any { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
-            requestMediaPermissionsLauncher.launch(permissionsToRequest)
+
+        // filter out the permissions thats been granted
+        val permissionsNotGranted = permissionsToRequest.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+
+        if (permissionsNotGranted.isNotEmpty()) {
+            requestMediaPermissionsLauncher.launch(permissionsNotGranted)
         }
     }
 
