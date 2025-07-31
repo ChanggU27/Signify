@@ -47,11 +47,26 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    // Launcher for photos and video permission
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private val requestMediaPermissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val imagesGranted = permissions[Manifest.permission.READ_MEDIA_IMAGES] ?: false
+            val videosGranted = permissions[Manifest.permission.READ_MEDIA_VIDEO] ?: false
+            if (imagesGranted && videosGranted) {
+                Toast.makeText(this, "Media permissions granted!", Toast.LENGTH_SHORT).show()
+            } else {
+                //empty
+            }
+        }
+
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        installSplashScreen() // Correctly placed installSplashScreen
+        installSplashScreen()
+
+        requestMediaPermissions()
 
         // Request notification permission and schedule worker
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -154,7 +169,7 @@ class MainActivity : ComponentActivity() {
                                 showLandmarks = showLandmarks,
                                 errorMessage = errorMessage,
                                 onToggleTorch = viewModel::toggleTorch,
-                                onToggleShowLandmarks = viewModel::toggleShowLandmarks, // Corrected typo
+                                onToggleShowLandmarks = viewModel::toggleShowLandmarks,
                                 onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
                                 onClearHistory = viewModel::clearHistory,
                                 onDisplaySample = viewModel::onDisplaySample,
@@ -180,6 +195,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun requestMediaPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // For modern Android, request granular permissions
+            val permissionsToRequest = arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+            if (permissionsToRequest.any { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
+                requestMediaPermissionsLauncher.launch(permissionsToRequest)
+            }
+        } else {
+            // for older Android, request the legacy storage permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+
+                requestMediaPermissionsLauncher.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
+            }
+        }
+    }
     private fun scheduleNotificationWorker() {
         val notificationWorkRequest =
             PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)

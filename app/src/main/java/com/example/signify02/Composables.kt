@@ -67,6 +67,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.core.content.res.ResourcesCompat
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalDensity
 
 import java.util.Locale
 
@@ -192,6 +196,8 @@ fun SignifyCameraScreen(
                 ) {
                     Box{
                         var menuExpanded by remember { mutableStateOf(false) }
+                        var menuWidth by remember { mutableStateOf(IntSize.Zero) }
+
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
@@ -201,7 +207,8 @@ fun SignifyCameraScreen(
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false}
+                            onDismissRequest = { menuExpanded = false},
+                            modifier = Modifier.onSizeChanged { menuWidth = it }
                         ) {
                             DropdownMenuItem(
                                 text = {Text("ASL Alphabet Samples", fontFamily = Yrsa)},
@@ -228,6 +235,8 @@ fun SignifyCameraScreen(
                             )
 
                             var languageMenuExpanded by remember { mutableStateOf(false)}
+                            val density = LocalDensity.current
+
                             Box {
                                 DropdownMenuItem(
                                     text = { Text("Voice Accents", fontFamily = Yrsa)},
@@ -236,7 +245,8 @@ fun SignifyCameraScreen(
                                 )
                                 DropdownMenu(
                                     expanded = languageMenuExpanded,
-                                    onDismissRequest = { languageMenuExpanded = false}
+                                    onDismissRequest = { languageMenuExpanded = false},
+                                    offset = DpOffset(x = with(density) { menuWidth.width.toDp() }, y = 0.dp)
                                 ) {
                                     DropdownMenuItem(
                                         text = { Text("US English")},

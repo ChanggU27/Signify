@@ -44,7 +44,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var tts: TextToSpeech? = null
 
 
-    // UI stateflows
     // --- Camera & AI State ---
     val hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(application))
     val handLandmarkerResult = MutableStateFlow<HandLandmarkerResult?>(null)
@@ -100,9 +99,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun initializeLandmarkModel(application: Application) {
         try {
-            val model = FileUtil.loadMappedFile(application, "asl_landmark_model0.tflite")
+            val model = FileUtil.loadMappedFile(application, "asl_gesture_landmark.tflite")
             landmarkInterpreter = Interpreter(model, Interpreter.Options())
-            labels = application.assets.open("labels0.txt").bufferedReader().readLines().filter { it.isNotBlank() }
+            labels = application.assets.open("asl_gesture_labels.txt").bufferedReader().readLines().filter { it.isNotBlank() }
             alphabet = labels
         } catch (_: Exception) {
             errorMessage.value = "AI model or labels failed to load."
@@ -367,8 +366,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val PREFS_NAME = "SignifyPrefs"
     private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
-    private val KEY_TTS_LANGUAGE = "tts_language" // New key
-    private val KEY_TTS_COUNTRY = "tts_country"   // New key
+    private val KEY_TTS_LANGUAGE = "tts_language"
+    private val KEY_TTS_COUNTRY = "tts_country"
 
     private fun getShowInitialInfoDialogPreference(): Boolean {
         val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

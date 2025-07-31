@@ -41,7 +41,7 @@ class NotificationWorker(
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                return // Do not show notification if permission is not granted
+                return
             }
         }
 
