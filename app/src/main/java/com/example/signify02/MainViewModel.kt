@@ -18,6 +18,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -32,7 +33,16 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
+// PREFS constants
+private const val PREFS_NAME = "SignifyPrefs"
+private const val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
+private const val KEY_TTS_LANGUAGE = "tts_language"
+private const val KEY_TTS_COUNTRY = "tts_country"
+private const val KEY_SHOW_LANDMARKS = "show_landmarks"
+private const val KEY_AUTO_APPEND = "auto_append"
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+
 
     //core component and analyzers
     private var camera: Camera? = null
@@ -43,12 +53,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var alphabet: List<String> = emptyList()
     private var tts: TextToSpeech? = null
 
+    // auto appending of letter
+    private var autoAppendJob: Job?= null
+    private var lastAppendedSign: String?= null
+    // track sign, how long its being held
+    private var currentlyTimingSign: String? = null
+    //track the space, how long its being held
+    private var autoSpeakJob: Job? = null
+
 
     // --- Camera & AI State ---
     val hasCameraPermission = MutableStateFlow(checkCameraPermissionStatus(application))
     val handLandmarkerResult = MutableStateFlow<HandLandmarkerResult?>(null)
     val handBoundingBoxes = MutableStateFlow<List<RectF>>(emptyList())
-    val showLandmarks = MutableStateFlow(true)
+    val showLandmarks = MutableStateFlow(getPreference(KEY_SHOW_LANDMARKS, true))
     val currentCameraLens = MutableStateFlow(CameraSelector.LENS_FACING_BACK)
     val predictedSign = MutableStateFlow("")
     val currentConfidence = MutableStateFlow(0f)
@@ -57,6 +75,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- UI Controls State ---
     val signHistory = MutableStateFlow<List<String>>(emptyList())
     val isTorchOn = MutableStateFlow(false)
+    val isAutoAppendEnabled = MutableStateFlow(getPreference(KEY_AUTO_APPEND, true))
 
     // --- Navigation & Dialog State ---
     val showDisplaySample = MutableStateFlow(false)
@@ -64,6 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val showExitDialog = MutableStateFlow(false)
     val showPracticeMode = MutableStateFlow(false)
     val showInitialInfoDialog = MutableStateFlow(getShowInitialInfoDialogPreference())
+    val showSettingsScreen = MutableStateFlow(false)
 
     // --- Practice Mode State ---
     val practiceState = MutableStateFlow(PracticeState.NOT_STARTED)
@@ -74,6 +94,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- TTS Locale ---
     private val _ttsLocale = MutableStateFlow(getTtsLanguagePreference())
+
 
 
     enum class PracticeState { NOT_STARTED, PRACTICING }
@@ -113,6 +134,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onPermissionResult(isGranted: Boolean) {
         hasCameraPermission.value = isGranted
     }
+    fun onDisplaySettings() {
+        showSettingsScreen.value = true
+    }
+    fun onDismissSettings() {
+        showSettingsScreen.value = false
+    }
 
     fun toggleCamera() {
         currentCameraLens.value = if (currentCameraLens.value == CameraSelector.LENS_FACING_BACK) {
@@ -127,18 +154,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isTorchOn.value = !isTorchOn.value
     }
 
-    fun toggleShowLandmarks() {
-        showLandmarks.value = !showLandmarks.value
+    //Settings functions
+    fun toggleShowLandmarks(isEnabled: Boolean) {
+        showLandmarks.value = isEnabled
+        savePreference(KEY_SHOW_LANDMARKS, isEnabled)
+    }
+
+    fun toggleAutoAppend(isEnabled: Boolean) {
+        isAutoAppendEnabled.value = isEnabled
+        savePreference(KEY_AUTO_APPEND, isEnabled)
     }
 
     fun appendPredictedSignToHistory() {
-        if (predictedSign.value.isNotEmpty()) {
-            signHistory.value = signHistory.value + predictedSign.value
+        val signToAppend = predictedSign.value
+        if (signToAppend.isNotEmpty()) {
+
+            if (signToAppend.equals("space", ignoreCase = true)) {
+
+                if (signHistory.value.isEmpty() || signHistory.value.last() != " ") {
+                    signHistory.value = signHistory.value + " "
+                    lastAppendedSign = " "
+                }
+            } else {
+
+                signHistory.value = signHistory.value + signToAppend
+                lastAppendedSign = signToAppend
+            }
         }
     }
 
     fun clearHistory() {
         signHistory.value = emptyList()
+        lastAppendedSign = null
     }
 
     fun speakSignHistory() {
@@ -156,11 +203,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-    fun onDisplaySample() { showDisplaySample.value = true }
-    fun onDismissInfo() { showDisplaySample.value = false }
-    fun onDisplayAbout() { showAboutScreen.value = true }
-    fun onDismissAbout() { showAboutScreen.value = false }
-    fun onDismissExitDialog() { showExitDialog.value = false }
+    fun onDisplaySample(){
+        showDisplaySample.value = true
+    }
+    fun onDismissInfo() {
+        showDisplaySample.value = false
+    }
+    fun onDisplayAbout() {
+        showAboutScreen.value = true
+    }
+    fun onDismissAbout() {
+        showAboutScreen.value = false
+    }
+    fun onDismissExitDialog(){
+        showExitDialog.value = false
+    }
     fun onDismissInitialInfoDialog(doNotShowAgain: Boolean) {
         showInitialInfoDialog.value = false
         if (doNotShowAgain) saveShowInitialInfoDialogPreference(false)
@@ -168,6 +225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onBackPress() {
         when {
+            showSettingsScreen.value -> onDismissSettings()
             showAboutScreen.value -> onDismissAbout()
             showDisplaySample.value -> onDismissInfo()
             showPracticeMode.value -> onDismissPracticeMode()
@@ -249,6 +307,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         predictedSign.value = ""
                         currentConfidence.value = 0f
+                        autoAppendJob?.cancel()
+                        currentlyTimingSign = null
+                        lastAppendedSign = null
                     }
                 }
 
@@ -282,6 +343,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val maxIndex = outputProbabilities[0].indexOfFirst { it == maxConfidence }
             val sign = labels.getOrElse(maxIndex) { "" }
 
+            predictedSign.value = sign
+            currentConfidence.value = maxConfidence
+
+            if (!sign.equals("space", ignoreCase = true)) {
+                autoSpeakJob?.cancel()
+            }
+
             if (practiceState.value == PracticeState.PRACTICING) {
                 if (sign.equals(currentPracticeLetter.value, ignoreCase = true)) {
                     practiceScore.value++
@@ -289,23 +357,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     triggerFeedback(true)
                 }
             } else {
-                if (sign.equals("space", ignoreCase = true)) {
-                    viewModelScope.launch {
-                        predictedSign.value = "space"
-                        currentConfidence.value = maxConfidence
-                        delay(10)
-                        speakSignHistory()
-                        clearHistory()
-
-                    }
-                } else {
-                    predictedSign.value = sign
-                    currentConfidence.value = maxConfidence
-                }
+                handleAutoAppend(sign)
             }
-        } else if (practiceState.value != PracticeState.PRACTICING) {
+        } else {
             predictedSign.value = ""
             currentConfidence.value = 0f
+            autoAppendJob?.cancel()
+            currentlyTimingSign = null
+            lastAppendedSign = null
+        }
+    }
+
+    private fun handleAutoAppend(currentSign: String){
+        //auto speak timer for space
+        if (currentSign.equals("space", ignoreCase = true)) {
+            autoAppendJob?.cancel()
+
+            // only start a new timer if one isn't already running
+            if (autoSpeakJob == null || autoSpeakJob?.isActive == false) {
+                autoSpeakJob = viewModelScope.launch {
+                    delay(1500)
+                    speakSignHistory()
+                    clearHistory()
+
+                    //clear after
+                    predictedSign.value = ""
+                    currentConfidence.value = 0f
+                }
+            }
+            return
+        }
+
+        if (!isAutoAppendEnabled.value) return
+        if (currentSign == currentlyTimingSign || currentSign == lastAppendedSign) {
+            return
+        }
+
+        autoAppendJob?.cancel()
+        currentlyTimingSign = currentSign
+
+        // regular letter, append after .5s of being held
+        autoAppendJob = viewModelScope.launch{
+            delay(500)
+            if (predictedSign.value == currentSign){
+                signHistory.value = signHistory.value + currentSign
+                lastAppendedSign = currentSign
+            }
+            currentlyTimingSign = null
         }
     }
 
@@ -364,10 +462,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private val PREFS_NAME = "SignifyPrefs"
-    private val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
-    private val KEY_TTS_LANGUAGE = "tts_language"
-    private val KEY_TTS_COUNTRY = "tts_country"
+    private fun savePreference(key: String, value: Boolean) {
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(key, value) }
+    }
+
+    private fun getPreference(key: String, defaultValue: Boolean): Boolean {
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(key, defaultValue)
+    }
+
+
 
     private fun getShowInitialInfoDialogPreference(): Boolean {
         val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -397,6 +502,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteLastSignFromHistory() {
         if (signHistory.value.isNotEmpty()) {
             signHistory.value = signHistory.value.dropLast(1)
+            lastAppendedSign = signHistory.value.lastOrNull()
         }
     }
 

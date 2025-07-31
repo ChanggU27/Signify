@@ -71,6 +71,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 
 import java.util.Locale
 
@@ -112,7 +116,6 @@ fun SignifyCameraScreen(
     showLandmarks: Boolean,
     errorMessage: String?,
     onToggleTorch: () -> Unit,
-    onToggleShowLandmarks: () -> Unit,
     onAppendSignToHistory: () -> Unit,
     onClearHistory: () -> Unit,
     onDisplaySample: () -> Unit,
@@ -129,10 +132,23 @@ fun SignifyCameraScreen(
     onNextLetter: () -> Unit,
     onSpeakSignHistory: () -> Unit,
     onSetTtsLanguage: (Locale) -> Unit,
-    onDeleteLastSign: () -> Unit
+    onDeleteLastSign: () -> Unit,
+    onDisplaySettings: () -> Unit
 ) {
     val context = LocalContext.current
     var previewView: PreviewView? by remember { mutableStateOf(null) }
+
+
+    // Haptic feedback
+    val haptics = LocalHapticFeedback.current
+    val previousHistorySize = remember { mutableIntStateOf(signHistory.size) }
+
+    LaunchedEffect(signHistory){
+        if (signHistory.size > previousHistorySize.intValue) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        previousHistorySize.intValue = signHistory.size
+    }
 
     LaunchedEffect(previewView, currentCameraLens) {
         if (hasCameraPermission && previewView != null) {
@@ -148,6 +164,12 @@ fun SignifyCameraScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
+                .clickable(
+
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = onAppendSignToHistory
+                )
                 .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
         ) {
             if (hasCameraPermission) {
@@ -234,6 +256,14 @@ fun SignifyCameraScreen(
                                 }
                             )
 
+                            DropdownMenuItem(
+                                text = { Text("Settings", fontFamily = Yrsa) },
+                                onClick = {
+                                    onDisplaySettings()
+                                    menuExpanded = false
+                                }
+                            )
+
                             var languageMenuExpanded by remember { mutableStateOf(false)}
                             val density = LocalDensity.current
 
@@ -308,10 +338,7 @@ fun SignifyCameraScreen(
                 modifier = Modifier.navigationBarsPadding(),
                 signHistory = signHistory,
                 isTorchOn = isTorchOn,
-                showLandmarks = showLandmarks,
                 onToggleTorch = onToggleTorch,
-                onToggleShowLandmarks = onToggleShowLandmarks,
-                onAppendSignToHistory = onAppendSignToHistory,
                 onClearHistory = onClearHistory,
                 onSpeakSignHistory = onSpeakSignHistory,
                 onDeleteLastSign = onDeleteLastSign
@@ -349,10 +376,7 @@ fun RecognizedSignBox(
     modifier: Modifier = Modifier,
     signHistory: List<String>,
     isTorchOn: Boolean,
-    showLandmarks: Boolean,
     onToggleTorch: () -> Unit,
-    onToggleShowLandmarks: () -> Unit,
-    onAppendSignToHistory: () -> Unit,
     onClearHistory: () -> Unit,
     onSpeakSignHistory: () -> Unit,
     onDeleteLastSign: () -> Unit
@@ -374,17 +398,7 @@ fun RecognizedSignBox(
                     tint = if (isTorchOn) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
                 )
             }
-            IconButton(
-                onClick = onToggleShowLandmarks, // Corrected typo
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (showLandmarks) MaterialTheme.colorScheme.secondary else Color.Transparent)
-            ){
-                Icon(
-                    imageVector = if (showLandmarks) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                    contentDescription = "Toggle Landmark Visibility",
-                    tint = if (showLandmarks) MaterialTheme.colorScheme.onSecondary else LocalContentColor.current
-                )
-            }
+
             IconButton(onClick = onSpeakSignHistory,
                 modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
                     .background(Color.Yellow)) {
@@ -392,17 +406,6 @@ fun RecognizedSignBox(
                     imageVector = Icons.Default.RecordVoiceOver,
                     contentDescription = "Speak Sign History",
                     tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            IconButton(
-                onClick = onAppendSignToHistory,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-            ){
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add to Sign History",
-                    tint = Color.White
                 )
             }
 
@@ -745,20 +748,20 @@ fun InitialInfoDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.PhotoCamera, contentDescription = "Camera Icon", modifier = Modifier.size(40.dp))
                 Spacer(modifier = Modifier.width(16.dp))
-                Text("Point the camera at a hand to detect and translate ASL (Alphabet) in real-time.", fontFamily = Yrsa)
+                Text("Point the camera at a hand to detect and translate ASL (Alphabet, and some gestures) in real-time.", fontFamily = Yrsa)
             }
             Spacer(modifier = Modifier.height(25.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Add, contentDescription = "Add Icon", tint = Color.White, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.primary), )
                 Spacer(modifier = Modifier.width(16.dp))
-                Text("Press the '+' button to add letters to your sign history.", fontFamily = Yrsa)
+                Text("Tap anywhere in the camera display feed to append predicted sign to sign history.", fontFamily = Yrsa)
             }
             Spacer(modifier = Modifier.height(25.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.SpaceBar, contentDescription = "Spacebar Icon", modifier = Modifier.size(40.dp) )
                 Spacer(modifier = Modifier.width(16.dp))
-                Text("Make the 'space' sign to make Signify speak the word and clear the history.", fontFamily = Yrsa)
+                Text("Make the 'space' sign and hold it for 1.5s to make Signify speak the word and clear the history. The space sign can also be used to add a space for every letter/word.", fontFamily = Yrsa)
             }
         }
     }

@@ -88,10 +88,16 @@ class MainActivity : ComponentActivity() {
                     val showAboutScreen by viewModel.showAboutScreen.collectAsState()
                     val showPracticeMode by viewModel.showPracticeMode.collectAsState()
 
-                    // Collect dialog states
+                    // dialog states
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
                     val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
                     val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
+
+                    //Settings states
+                    val showSettingsScreen by viewModel.showSettingsScreen.collectAsState()
+                    val isAutoAppendEnabled by viewModel.isAutoAppendEnabled.collectAsState()
+                    val showLandmarks by viewModel.showLandmarks.collectAsState()
+
 
                     // This logic will display the dialogs as overlays
                     if (showInitialInfoDialog && hasCameraPermission) {
@@ -123,6 +129,15 @@ class MainActivity : ComponentActivity() {
                             LearningHubScreen(
                                 onDismiss = viewModel::onDismissPracticeMode,
                                 onStartFlashcards = viewModel::startFlashcardPractice
+                            )
+                        }
+                        showSettingsScreen -> {
+                            SettingsScreen(
+                                onDismiss = viewModel::onDismissSettings,
+                                showLandmarks = showLandmarks,
+                                onToggleShowLandmarks = viewModel::toggleShowLandmarks,
+                                isAutoAppendEnabled = isAutoAppendEnabled,
+                                onToggleAutoAppend = viewModel::toggleAutoAppend
                             )
                         }
                         else -> {
@@ -169,7 +184,6 @@ class MainActivity : ComponentActivity() {
                                 showLandmarks = showLandmarks,
                                 errorMessage = errorMessage,
                                 onToggleTorch = viewModel::toggleTorch,
-                                onToggleShowLandmarks = viewModel::toggleShowLandmarks,
                                 onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
                                 onClearHistory = viewModel::clearHistory,
                                 onDisplaySample = viewModel::onDisplaySample,
@@ -187,6 +201,7 @@ class MainActivity : ComponentActivity() {
                                 onSpeakSignHistory = viewModel::speakSignHistory,
                                 onSetTtsLanguage = viewModel::setTtsLanguage,
                                 onDeleteLastSign = viewModel::deleteLastSignFromHistory,
+                                onDisplaySettings = viewModel::onDisplaySettings
                             )
                         }
                     }
@@ -197,23 +212,17 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun requestMediaPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // For modern Android, request granular permissions
-            val permissionsToRequest = arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
-            )
-            if (permissionsToRequest.any { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
-                requestMediaPermissionsLauncher.launch(permissionsToRequest)
-            }
-        } else {
-            // for older Android, request the legacy storage permission
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-
-                requestMediaPermissionsLauncher.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
-            }
+        // For modern Android, request granular permissions
+        val permissionsToRequest = arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
+        if (permissionsToRequest.any { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
+            requestMediaPermissionsLauncher.launch(permissionsToRequest)
         }
     }
+
+    // Sched notif every 8 hours
     private fun scheduleNotificationWorker() {
         val notificationWorkRequest =
             PeriodicWorkRequestBuilder<NotificationWorker>(8, TimeUnit.HOURS)
