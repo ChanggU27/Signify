@@ -24,6 +24,6 @@ W
 X
 Y
 Z
-hello
-iloveyou
-space
+Stop
+I Love You
+Space

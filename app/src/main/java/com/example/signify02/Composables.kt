@@ -88,15 +88,16 @@ val HAND_CONNECTIONS = listOf(
 )
 
 val SignDrawables = mapOf(
-    'A' to R.drawable.a_test, 'B' to R.drawable.b_test, 'C' to R.drawable.c_test,
-    'D' to R.drawable.d_test, 'E' to R.drawable.e_test, 'F' to R.drawable.f_test,
-    'G' to R.drawable.g_test, 'H' to R.drawable.h_test, 'I' to R.drawable.i_test,
-    'J' to R.drawable.j_test, 'K' to R.drawable.k_test, 'L' to R.drawable.l_test,
-    'M' to R.drawable.m_test, 'N' to R.drawable.n_test, 'O' to R.drawable.o_test,
-    'P' to R.drawable.p_test, 'Q' to R.drawable.q_test, 'R' to R.drawable.r_test,
-    'S' to R.drawable.s_test, 'T' to R.drawable.t_test, 'U' to R.drawable.u_test,
-    'V' to R.drawable.v_test, 'W' to R.drawable.w_test, 'X' to R.drawable.x_test,
-    'Y' to R.drawable.y_test, 'Z' to R.drawable.z_test, '_' to R.drawable.space_test
+    'A' to R.drawable.a_instruc, 'B' to R.drawable.b_instruc, 'C' to R.drawable.c_instruc,
+    'D' to R.drawable.d_instruc, 'E' to R.drawable.e_instruc, 'F' to R.drawable.f_instruc,
+    'G' to R.drawable.g_instruc, 'H' to R.drawable.h_instruc, 'I' to R.drawable.i_instruc,
+    'J' to R.drawable.j_instruc, 'K' to R.drawable.k_instruc, 'L' to R.drawable.l_instruc,
+    'M' to R.drawable.m_instruc, 'N' to R.drawable.n_instruc, 'O' to R.drawable.o_instruc,
+    'P' to R.drawable.p_instruc, 'Q' to R.drawable.q_instruc, 'R' to R.drawable.r_instruc,
+    'S' to R.drawable.s_instruc, 'T' to R.drawable.t_instruc, 'U' to R.drawable.u_instruc,
+    'V' to R.drawable.v_instruc, 'W' to R.drawable.w_instruc, 'X' to R.drawable.x_instruc,
+    'Y' to R.drawable.y_instruc, 'Z' to R.drawable.z_instruc, '_' to R.drawable.space_instruc,
+    '-' to R.drawable.stop_test, '+' to R.drawable.iloveyou_test
 )
 
 @Composable
@@ -594,7 +595,7 @@ fun DisplaySampleScreen(
     onDismiss: () -> Unit
 ) {
 
-    val signs = ('A'..'Z').toList() + '_'
+    val signs = ('A'..'Z').toList() + '_' + '-' + '+'
 
     Scaffold(
         topBar = {
@@ -629,7 +630,13 @@ fun DisplaySampleScreen(
                             modifier = Modifier.size(100.dp)
                         )
                     }
-                    Text(text = if (sign == '_') "Space" else sign.toString())
+                    val label = when (sign) {
+                        '_' -> "Space"
+                        '-' -> "Stop"
+                        '+' -> "I Love You"
+                        else -> sign.toString()
+                    }
+                    Text(text = label)
                 }
             }
         }
@@ -653,6 +660,7 @@ fun SignifyDialog(
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.width(350.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -759,7 +767,11 @@ fun InitialInfoDialog(
             }
             Spacer(modifier = Modifier.height(25.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.SpaceBar, contentDescription = "Spacebar Icon", modifier = Modifier.size(40.dp) )
+                Image(
+                    painter = painterResource(id = R.drawable.space_instruc),
+                    contentDescription = "Space Sign Image",
+                    modifier = Modifier.size(60.dp)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text("Make the 'space' sign and hold it for 1.5s to make Signify speak the word and clear the history. The space sign can also be used to add a space for every letter/word.", fontFamily = Yrsa)
             }

@@ -75,7 +75,7 @@ fun AboutScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Signify is a real-time American Sign Language (ASL) alphabet detection app designed to bridge communication gaps.",
+                text = "Signify is a real-time American Sign Language (ASL) alphabet detection app designed to bridge communication gaps and learn and practice ASL fingerspelling.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
