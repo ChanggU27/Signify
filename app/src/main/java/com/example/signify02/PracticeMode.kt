@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.signify02.ui.Yrsa
@@ -75,12 +76,9 @@ fun PracticeHUD(
     onPreviousLetter: () -> Unit,
     onNextLetter: () -> Unit
 ) {
-    val currentHintDrawable = targetLetter?.let { letter ->
-        val key = if (letter.equals("space", ignoreCase = true)) '_' else letter.first()
-        SignDrawables[key]
-    }
+    // Find the full Sign object from the master list using the ID
+    val signToPractice = AllSigns.find { it.id.equals(targetLetter, ignoreCase = true) }
 
-    // Inside practice mode
     Box(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -110,7 +108,8 @@ fun PracticeHUD(
                 Text("End Practice", fontFamily = Yrsa)
             }
         }
-        targetLetter?.let {
+
+        if (signToPractice != null) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -123,17 +122,21 @@ fun PracticeHUD(
                     fontFamily = Yrsa,
                     style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 10f))
                 )
+
                 Text(
-                    text = it,
+                    text = signToPractice.displayName,
                     color = Color.White,
-                    fontSize = 140.sp,
+                    fontSize = 110.sp,
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = Yrsa,
+                    textAlign = TextAlign.Center,
                     style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 10f))
                 )
                 Spacer(modifier = Modifier.height(185.dp))
             }
         }
+
+        // Previous/Next button
         IconButton(
             onClick = onPreviousLetter,
             modifier = Modifier.align(Alignment.CenterStart).offset(x = 16.dp, y = (30).dp).size(48.dp)
@@ -147,28 +150,27 @@ fun PracticeHUD(
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next Letter", tint = Color.White, modifier = Modifier.size(36.dp))
         }
 
-        // Display Hint Image
+        // display hint image
         AnimatedVisibility(
-            visible = showHint && currentHintDrawable != null,
+            visible = showHint && signToPractice != null,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300, delayMillis = 400)),
             modifier = Modifier.align(Alignment.Center)
         ) {
-            if (currentHintDrawable != null) {
+            if (signToPractice != null) {
                 Box(
                     modifier = Modifier.size(150.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = currentHintDrawable),
-                        contentDescription = "Hint for letter $targetLetter",
+                        painter = painterResource(id = signToPractice.drawableRes),
+                        contentDescription = "Hint for ${signToPractice.displayName}",
                         modifier = Modifier.fillMaxSize()
                     )
                 }
             }
         }
 
-        // Show CORRECT!
         AnimatedVisibility(
             visible = feedback != null && feedback.isCorrect,
             enter = fadeIn(animationSpec = tween(300)),

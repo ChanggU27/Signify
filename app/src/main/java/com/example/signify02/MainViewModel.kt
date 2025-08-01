@@ -35,11 +35,11 @@ import kotlin.math.sqrt
 
 // PREFS constants
 private const val PREFS_NAME = "SignifyPrefs"
-private const val KEY_SHOW_INITIAL_INFO_DIALOG = "show_initial_info_dialog"
 private const val KEY_TTS_LANGUAGE = "tts_language"
 private const val KEY_TTS_COUNTRY = "tts_country"
 private const val KEY_SHOW_LANDMARKS = "show_landmarks"
 private const val KEY_AUTO_APPEND = "auto_append"
+private const val KEY_SHOW_INITIAL_TUTORIAL = "show_initial_tutorial"
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -52,6 +52,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var labels: List<String> = emptyList()
     private var alphabet: List<String> = emptyList()
     private var tts: TextToSpeech? = null
+
 
     // auto appending of letter
     private var autoAppendJob: Job?= null
@@ -82,8 +83,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val showAboutScreen = MutableStateFlow(false)
     val showExitDialog = MutableStateFlow(false)
     val showPracticeMode = MutableStateFlow(false)
-    val showInitialInfoDialog = MutableStateFlow(getShowInitialInfoDialogPreference())
+    val showInitialTutorial = MutableStateFlow(getShowInitialTutorialPreference())
     val showSettingsScreen = MutableStateFlow(false)
+    val showManualTutorial = MutableStateFlow(false)
 
     // --- Practice Mode State ---
     val practiceState = MutableStateFlow(PracticeState.NOT_STARTED)
@@ -120,10 +122,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun initializeLandmarkModel(application: Application) {
         try {
-            val model = FileUtil.loadMappedFile(application, "asl_gesture_landmark.tflite")
+            val model = FileUtil.loadMappedFile(application, "ASL_Gesture_Landmark_Model.tflite")
             landmarkInterpreter = Interpreter(model, Interpreter.Options())
-            labels = application.assets.open("asl_gesture_labels.txt").bufferedReader().readLines().filter { it.isNotBlank() }
-            alphabet = labels
+            // interpret the models raw output
+            labels = application.assets.open("ASL_Labels.txt").bufferedReader().readLines().filter { it.isNotBlank() }
+
+
+            alphabet = AllSigns.map { it.id }
+
         } catch (_: Exception) {
             errorMessage.value = "AI model or labels failed to load."
         }
@@ -219,9 +225,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onDismissExitDialog(){
         showExitDialog.value = false
     }
-    fun onDismissInitialInfoDialog(doNotShowAgain: Boolean) {
-        showInitialInfoDialog.value = false
-        if (doNotShowAgain) saveShowInitialInfoDialogPreference(false)
+    fun onDismissInitialTutorial(doNotShowAgain: Boolean) {
+        showInitialTutorial.value = false
+        if (doNotShowAgain) saveShowInitialTutorialPreference(false)
     }
 
     fun onBackPress() {
@@ -384,7 +390,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentlyTimingSign = currentSign
 
         if (currentSign.equals("space", ignoreCase = true)) {
-            // Timer 1: Add a space after 0.5 seconds
+            // Timer 1: append after its been held for .5s
             autoAppendJob = viewModelScope.launch {
                 delay(500)
                 if (predictedSign.value == currentSign) { //check to see if its still holding (sign)
@@ -394,7 +400,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
-            // Timer 2: Speak and clear after 1.5 seconds
+            // Timer 2: speak and clear after space is held for 1.5s
             autoSpeakJob = viewModelScope.launch {
                 delay(1500)
                 if (predictedSign.value == currentSign) { // Check if still holding
@@ -405,7 +411,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } else {
-            // If it's a regular letter, start the normal append timer
+            // if it's a regular letter, start the normal append timer
             if (currentSign != lastAppendedSign) {
                 autoAppendJob = viewModelScope.launch {
                     delay(500)
@@ -419,6 +425,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun onDisplayManualTutorial() {
+        showManualTutorial.value = true
+    }
+
+    fun onDismissManualTutorial() {
+        showManualTutorial.value = false
+    }
 
     // Private helpers
     private fun normalizeLandmarks(landmarks: List<NormalizedLandmark>): FloatArray {
@@ -486,14 +499,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 
 
-    private fun getShowInitialInfoDialogPreference(): Boolean {
+    private fun getShowInitialTutorialPreference(): Boolean {
         val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, true)
+        return prefs.getBoolean(KEY_SHOW_INITIAL_TUTORIAL, true)
     }
 
-    private fun saveShowInitialInfoDialogPreference(show: Boolean) {
+    private fun saveShowInitialTutorialPreference(show: Boolean) {
         val prefs = getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit { putBoolean(KEY_SHOW_INITIAL_INFO_DIALOG, show) }
+        prefs.edit { putBoolean(KEY_SHOW_INITIAL_TUTORIAL, show) }
     }
 
     private fun saveTtsLanguagePreference(locale: Locale) {
@@ -510,6 +523,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val country = prefs.getString(KEY_TTS_COUNTRY, Locale.US.country) ?: Locale.US.country
         return Locale(language, country)
     }
+
 
     fun deleteLastSignFromHistory() {
         if (signHistory.value.isNotEmpty()) {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import androidx.annotation.DrawableRes
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.view.PreviewView
@@ -42,6 +43,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.example.signify02.ui.Yrsa
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -73,8 +75,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 import java.util.Locale
 
@@ -87,18 +93,37 @@ val HAND_CONNECTIONS = listOf(
     Pair(0, 5), Pair(5, 9), Pair(9, 13), Pair(13, 17), Pair(0, 17) // Palm
 )
 
-val SignDrawables = mapOf(
-    'A' to R.drawable.a_instruc, 'B' to R.drawable.b_instruc, 'C' to R.drawable.c_instruc,
-    'D' to R.drawable.d_instruc, 'E' to R.drawable.e_instruc, 'F' to R.drawable.f_instruc,
-    'G' to R.drawable.g_instruc, 'H' to R.drawable.h_instruc, 'I' to R.drawable.i_instruc,
-    'J' to R.drawable.j_instruc, 'K' to R.drawable.k_instruc, 'L' to R.drawable.l_instruc,
-    'M' to R.drawable.m_instruc, 'N' to R.drawable.n_instruc, 'O' to R.drawable.o_instruc,
-    'P' to R.drawable.p_instruc, 'Q' to R.drawable.q_instruc, 'R' to R.drawable.r_instruc,
-    'S' to R.drawable.s_instruc, 'T' to R.drawable.t_instruc, 'U' to R.drawable.u_instruc,
-    'V' to R.drawable.v_instruc, 'W' to R.drawable.w_instruc, 'X' to R.drawable.x_instruc,
-    'Y' to R.drawable.y_instruc, 'Z' to R.drawable.z_instruc, '_' to R.drawable.space_instruc,
-    '-' to R.drawable.stop_test, '+' to R.drawable.iloveyou_test
+data class Sign(
+    val id: String,
+    val displayName: String,
+    @DrawableRes val drawableRes: Int
 )
+
+val AllSigns = listOf(
+    Sign("A", "A", R.drawable.a_instruc), Sign("B", "B", R.drawable.b_instruc),
+    Sign("C", "C", R.drawable.c_instruc), Sign("D", "D", R.drawable.d_instruc),
+    Sign("E", "E", R.drawable.e_instruc), Sign("F", "F", R.drawable.f_instruc),
+    Sign("G", "G", R.drawable.g_instruc), Sign("H", "H", R.drawable.h_instruc),
+    Sign("I", "I", R.drawable.i_instruc), Sign("J", "J", R.drawable.j_instruc),
+    Sign("K", "K", R.drawable.k_instruc), Sign("L", "L", R.drawable.l_instruc),
+    Sign("M", "M", R.drawable.m_instruc), Sign("N", "N", R.drawable.n_instruc),
+    Sign("O", "O", R.drawable.o_instruc), Sign("P", "P", R.drawable.p_instruc),
+    Sign("Q", "Q", R.drawable.q_instruc), Sign("R", "R", R.drawable.r_instruc),
+    Sign("S", "S", R.drawable.s_instruc), Sign("T", "T", R.drawable.t_instruc),
+    Sign("U", "U", R.drawable.u_instruc), Sign("V", "V", R.drawable.v_instruc),
+    Sign("W", "W", R.drawable.w_instruc), Sign("X", "X", R.drawable.x_instruc),
+    Sign("Y", "Y", R.drawable.y_instruc), Sign("Z", "Z", R.drawable.z_instruc),
+    Sign("SPACE", "SPACE", R.drawable.space_instruc),
+    Sign("STOP", "STOP", R.drawable.stop_test),
+    Sign("I LOVE YOU", "I LOVE YOU", R.drawable.iloveyou_test),
+    Sign("THANK YOU", "THANK YOU", R.drawable.thankyou_instruc),
+    Sign("THIRSTY", "THIRSTY", R.drawable.thirsty_instruct),
+    Sign("YES", "YES", R.drawable.yes_instruc),
+    Sign("NO", "NO", R.drawable.no_instruc),
+    Sign("GOOD", "GOOD", R.drawable.good_instruc),
+    Sign("HELLO", "HELLO", R.drawable.hello_instruc)
+)
+
 
 @Composable
 fun SignifyCameraScreen(
@@ -134,7 +159,8 @@ fun SignifyCameraScreen(
     onSpeakSignHistory: () -> Unit,
     onSetTtsLanguage: (Locale) -> Unit,
     onDeleteLastSign: () -> Unit,
-    onDisplaySettings: () -> Unit
+    onDisplaySettings: () -> Unit,
+    onDisplayManualTutorial: () -> Unit
 ) {
     val context = LocalContext.current
     var previewView: PreviewView? by remember { mutableStateOf(null) }
@@ -144,6 +170,7 @@ fun SignifyCameraScreen(
     val haptics = LocalHapticFeedback.current
     val previousHistorySize = remember { mutableIntStateOf(signHistory.size) }
 
+    // haptic feedback function
     LaunchedEffect(signHistory){
         if (signHistory.size > previousHistorySize.intValue) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -151,6 +178,7 @@ fun SignifyCameraScreen(
         previousHistorySize.intValue = signHistory.size
     }
 
+    //setup the camera
     LaunchedEffect(previewView, currentCameraLens) {
         if (hasCameraPermission && previewView != null) {
             setupCamera(context, lifecycleOwner, previewView!!.surfaceProvider)
@@ -192,7 +220,8 @@ fun SignifyCameraScreen(
                     modifier = Modifier.fillMaxSize(),
                     predictedSign = predictedSign,
                     predictedSignConfidence = predictedSignConfidence,
-                    showLandmarks = showLandmarks
+                    showLandmarks = showLandmarks,
+                    practiceState = practiceState
                 )
 
                 if (practiceState == MainViewModel.PracticeState.PRACTICING) {
@@ -234,7 +263,7 @@ fun SignifyCameraScreen(
                             modifier = Modifier.onSizeChanged { menuWidth = it }
                         ) {
                             DropdownMenuItem(
-                                text = {Text("ASL Alphabet Samples", fontFamily = Yrsa)},
+                                text = {Text("ASL Alphabet/Gesture Samples", fontFamily = Yrsa)},
                                 onClick = {
                                     onDisplaySample()
                                     menuExpanded = false
@@ -297,6 +326,14 @@ fun SignifyCameraScreen(
                                     )
                                 }
                             }
+
+                            DropdownMenuItem(
+                                text = { Text("Tutorial", fontFamily = Yrsa) },
+                                onClick = {
+                                    onDisplayManualTutorial()
+                                    menuExpanded = false
+                                }
+                            )
                         }
                     }
                     Text(
@@ -444,7 +481,7 @@ fun RecognizedSignBox(
                 .padding(12.dp)
         ){
             Text(
-                text = "Sign History: ${signHistory.joinToString(" ")}",
+                text = "History: ${signHistory.joinToString(" ")}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.Black,
                 modifier = Modifier.verticalScroll(rememberScrollState())
@@ -461,7 +498,8 @@ fun HandDetectionOverlay(
     currentCameraLens: Int,
     predictedSign: String,
     predictedSignConfidence: Float,
-    showLandmarks: Boolean
+    showLandmarks: Boolean,
+    practiceState: MainViewModel.PracticeState
 ) {
     val context = LocalContext.current
     val yrsaTypeface = remember(context) {
@@ -471,8 +509,11 @@ fun HandDetectionOverlay(
     val textBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
     val lowConfidenceColor = MaterialTheme.colorScheme.error
     val highConfidenceColor = Color.White
-    val outlineColor = if (predictedSignConfidence < 0.60f) lowConfidenceColor else highConfidenceColor
-
+    val outlineColor = if (practiceState == MainViewModel.PracticeState.PRACTICING) {
+        Color.Red
+    } else {
+        if (predictedSignConfidence < 0.80f) lowConfidenceColor else highConfidenceColor
+    }
     Canvas(modifier = modifier) {
         if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
             scale(scaleX = -1f, scaleY = 1f, pivot = center) {
@@ -498,7 +539,7 @@ fun HandDetectionOverlay(
 
         // tooltip drawing logic
         val firstHandBox = normalizedBoundingBoxes.firstOrNull()
-        if (predictedSign.isNotEmpty() && firstHandBox != null) {
+        if (practiceState != MainViewModel.PracticeState.PRACTICING && predictedSign.isNotEmpty() && firstHandBox != null) {
             val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()})%"
             val textPaint = Paint().apply {
                 color = Color.White.toArgb()
@@ -589,18 +630,16 @@ private fun DrawScope.drawHandDetectionVisuals(
 }
 
 
+// Screen for ASL Alphabet and Gesture Samples
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DisplaySampleScreen(
     onDismiss: () -> Unit
 ) {
-
-    val signs = ('A'..'Z').toList() + '_' + '-' + '+'
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ASL Alphabet Samples", fontFamily = Yrsa) },
+                title = { Text("ASL Alphabet/Gesture Samples", fontFamily = Yrsa) },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -609,6 +648,7 @@ fun DisplaySampleScreen(
             )
         }
     ) { padding ->
+
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 128.dp),
             modifier = Modifier
@@ -617,26 +657,25 @@ fun DisplaySampleScreen(
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            items(signs) { sign ->
+            items(AllSigns) { sign ->
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    val resourceId = SignDrawables[sign]
-                    if (resourceId != null) {
-                        Image(
-                            painter = painterResource(id = resourceId),
-                            contentDescription = "Sign for letter $sign",
-                            modifier = Modifier.size(100.dp)
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .border(
+                            border = BorderStroke(2.dp, Color.Black),
+                            shape = RoundedCornerShape(24.dp)
                         )
-                    }
-                    val label = when (sign) {
-                        '_' -> "Space"
-                        '-' -> "Stop"
-                        '+' -> "I Love You"
-                        else -> sign.toString()
-                    }
-                    Text(text = label)
+
+
+                ) {
+                    Image(
+                        painter = painterResource(id = sign.drawableRes),
+                        contentDescription = "Sign for ${sign.displayName}",
+                        modifier = Modifier.size(100.dp)
+                    )
+                    Text(text = sign.displayName, fontFamily = Yrsa, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -735,45 +774,155 @@ fun ExitConfirmationDialog(
     }
 }
 
+
+
+
 @Composable
-fun InitialInfoDialog(
-    onDismiss: (Boolean) -> Unit
+fun InitialTutorialScreen(
+    onDismiss: (Boolean) -> Unit,
+    showDoNotShowAgainOption: Boolean
 ) {
     var doNotShowAgainChecked by remember { mutableStateOf(false) }
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    var isNextButtonEnabled by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
-    SignifyDialog(
-        onDismissRequest = { onDismiss(doNotShowAgainChecked) },
-        title = "How to Use",
-        confirmButtonText = "Got it!",
-        onConfirm = { onDismiss(doNotShowAgainChecked) },
-        showCheckbox = true,
-        checkboxChecked = doNotShowAgainChecked,
-        onCheckboxCheckedChange = { doNotShowAgainChecked = it }
+    LaunchedEffect(pagerState.currentPage) {
+        isNextButtonEnabled = false
+        delay(2000)
+        isNextButtonEnabled = true
+    }
+
+    // full-screen semi-transparent background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+            .clickable( // consume clicks
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = {}
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Spacer(modifier = Modifier.height(30.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.5f)
+                .widthIn(max = 400.dp)
+                .padding(horizontal = 24.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // the pager will take up all available space inside the card
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+                userScrollEnabled = isNextButtonEnabled,
+                verticalAlignment = Alignment.CenterVertically
+            ) { page ->
+                TutorialPage(page)
+            }
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PhotoCamera, contentDescription = "Camera Icon", modifier = Modifier.size(40.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Point the camera at a hand to detect and translate ASL (Alphabet, and some gestures) in real-time.", fontFamily = Yrsa)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showDoNotShowAgainOption) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { doNotShowAgainChecked = !doNotShowAgainChecked }
+                    ) {
+                        Checkbox(
+                            checked = doNotShowAgainChecked,
+                            onCheckedChange = { doNotShowAgainChecked = it }
+                        )
+                        Text("Do not show again", fontFamily = Yrsa)
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+
+                Button(
+                    onClick = {
+                        if (pagerState.currentPage < 2) {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        } else {
+                            onDismiss(doNotShowAgainChecked)
+                        }
+                    },
+                    enabled = isNextButtonEnabled
+                ) {
+                    Text(if (pagerState.currentPage < 2) "Next" else "Finish")
+                }
             }
-            Spacer(modifier = Modifier.height(25.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Add, contentDescription = "Add Icon", tint = Color.White, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary), )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Tap anywhere in the camera display feed to append predicted sign to sign history.", fontFamily = Yrsa)
+        }
+    }
+}
+
+@Composable
+fun TutorialPage(page: Int) {
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        when (page) {
+            //first page
+            0 -> {
+                Icon(Icons.Default.PhotoCamera, contentDescription = "Camera Icon", modifier = Modifier.size(80.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Point the camera at a hand to detect and translate ASL (Alphabet, and some static gestures) in real-time.",
+                    fontFamily = Yrsa,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
+                )
             }
-            Spacer(modifier = Modifier.height(25.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            //second page
+            1 -> {
+                Icon(
+                    Icons.Default.SaveAlt,
+                    contentDescription = "Save Icon",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Save the predicted sign by tapping anywhere on the camera feed.",
+                    fontFamily = Yrsa,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
+                )
+            }
+            // third page
+            2 -> {
                 Image(
                     painter = painterResource(id = R.drawable.space_instruc),
                     contentDescription = "Space Sign Image",
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(24.dp))
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text("Make the 'space' sign and hold it for 1.5s to make Signify speak the word and clear the history. The space sign can also be used to add a space for every letter/word.", fontFamily = Yrsa)
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Hold the 'space' sign for 1.5 seconds to hear your sentence read aloud before the history clears. This shortcut requires \"Auto-Append\" to be ON in the settings.",
+                    fontFamily = Yrsa,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,14 +31,14 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    //Ask for camera permission
+    //ask for camera permission
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             viewModel.onPermissionResult(isGranted)
         }
 
 
-    // Launcher for photos and video permission
+    // launcher for photos and video permission
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val requestMediaPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -68,118 +69,133 @@ class MainActivity : ComponentActivity() {
 
                     // dialog states
                     val showExitDialog by viewModel.showExitDialog.collectAsState()
-                    val showInitialInfoDialog by viewModel.showInitialInfoDialog.collectAsState()
+                    val showInitialTutorial by viewModel.showInitialTutorial.collectAsState()
                     val hasCameraPermission by viewModel.hasCameraPermission.collectAsState()
+                    val showManualTutorial by viewModel.showManualTutorial.collectAsState()
+
 
                     //Settings states
                     val showSettingsScreen by viewModel.showSettingsScreen.collectAsState()
                     val isAutoAppendEnabled by viewModel.isAutoAppendEnabled.collectAsState()
                     val showLandmarks by viewModel.showLandmarks.collectAsState()
 
+                    //StateFlow for camera permission
+                    val lifecycleOwner = LocalLifecycleOwner.current
 
-                    // This logic will display the dialogs as overlays
-                    if (showInitialInfoDialog && hasCameraPermission) {
-                        InitialInfoDialog(onDismiss = viewModel::onDismissInitialInfoDialog)
-                    }
+                    // StateFlow for mediapipe handlandmark
+                    val handBoundingBoxes by viewModel.handBoundingBoxes.collectAsState()
+                    val landmarkResult by viewModel.handLandmarkerResult.collectAsState()
+                    val currentCameraLens by viewModel.currentCameraLens.collectAsState()
 
-                    if (showExitDialog) {
-                        ExitConfirmationDialog(
-                            onConfirm = {
-                                viewModel.onDismissExitDialog()
-                                finish()
-                            },
-                            onDismiss = viewModel::onDismissExitDialog
-                        )
-                    }
+                    // StateFlow for signs
+                    val predictedSign by viewModel.predictedSign.collectAsState()
+                    val currentConfidence by viewModel.currentConfidence.collectAsState()
+
+                    // StateFlows
+                    val signHistory by viewModel.signHistory.collectAsState()
+                    val isTorchOn by viewModel.isTorchOn.collectAsState()
+                    val errorMessage by viewModel.errorMessage.collectAsState()
+
+                    // States for Practice Mode
+                    val practiceState by viewModel.practiceState.collectAsState()
+                    val currentPracticeLetter by viewModel.currentPracticeLetter.collectAsState()
+                    val practiceScore by viewModel.practiceScore.collectAsState()
+                    val feedback by viewModel.feedback.collectAsState()
+                    val showHintImage by viewModel.showHintImage.collectAsState()
+
 
                     BackHandler(enabled = true){
                         viewModel.onBackPress()
                     }
 
-                    when {
-                        showAboutScreen -> {
-                            AboutScreen(onDismiss = viewModel::onDismissAbout)
+                    // Handle screen logic
+                    Box(modifier = Modifier.fillMaxSize()){
+                        when {
+                            showAboutScreen -> {
+                                AboutScreen(onDismiss = viewModel::onDismissAbout)
+                            }
+                            showDisplaySample -> {
+                                DisplaySampleScreen(onDismiss = viewModel::onDismissInfo)
+                            }
+                            showPracticeMode -> {
+                                LearningHubScreen(
+                                    onDismiss = viewModel::onDismissPracticeMode,
+                                    onStartFlashcards = viewModel::startFlashcardPractice
+                                )
+                            }
+                            showSettingsScreen -> {
+                                SettingsScreen(
+                                    onDismiss = viewModel::onDismissSettings,
+                                    showLandmarks = showLandmarks,
+                                    onToggleShowLandmarks = viewModel::toggleShowLandmarks,
+                                    isAutoAppendEnabled = isAutoAppendEnabled,
+                                    onToggleAutoAppend = viewModel::toggleAutoAppend
+                                )
+                            }
+                            else -> {
+                                SignifyCameraScreen(
+                                    hasCameraPermission = hasCameraPermission,
+                                    requestCameraPermission = { onResult ->
+                                        requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    },
+                                    lifecycleOwner = lifecycleOwner,
+                                    setupCamera = viewModel::setupCameraAndHandTracking,
+                                    handBoundingBoxes = handBoundingBoxes,
+                                    landmarkResult = landmarkResult,
+                                    currentCameraLens = currentCameraLens,
+                                    onToggleCamera = viewModel::toggleCamera,
+                                    predictedSign = predictedSign,
+                                    predictedSignConfidence = currentConfidence,
+                                    signHistory = signHistory,
+                                    isTorchOn = isTorchOn,
+                                    showLandmarks = showLandmarks,
+                                    errorMessage = errorMessage,
+                                    onToggleTorch = viewModel::toggleTorch,
+                                    onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
+                                    onClearHistory = viewModel::clearHistory,
+                                    onDisplaySample = viewModel::onDisplaySample,
+                                    onDisplayAbout = viewModel::onDisplayAbout,
+                                    onStartPracticeMode = viewModel::onStartPracticeMode,
+                                    practiceState = practiceState,
+                                    currentPracticeLetter = currentPracticeLetter,
+                                    practiceScore = practiceScore,
+                                    feedback = feedback,
+                                    showHintImage = showHintImage,
+                                    onEndPractice = viewModel::endPractice,
+                                    onHintRequested = viewModel::onHintRequested,
+                                    onPreviousLetter = viewModel::onPreviousLetter,
+                                    onNextLetter = viewModel::onNextLetter,
+                                    onSpeakSignHistory = viewModel::speakSignHistory,
+                                    onSetTtsLanguage = viewModel::setTtsLanguage,
+                                    onDeleteLastSign = viewModel::deleteLastSignFromHistory,
+                                    onDisplaySettings = viewModel::onDisplaySettings,
+                                    onDisplayManualTutorial = viewModel::onDisplayManualTutorial
+                                )
+                            }
                         }
-                        showDisplaySample -> {
-                            DisplaySampleScreen(onDismiss = viewModel::onDismissInfo)
-                        }
-                        showPracticeMode -> {
-                            LearningHubScreen(
-                                onDismiss = viewModel::onDismissPracticeMode,
-                                onStartFlashcards = viewModel::startFlashcardPractice
-                            )
-                        }
-                        showSettingsScreen -> {
-                            SettingsScreen(
-                                onDismiss = viewModel::onDismissSettings,
-                                showLandmarks = showLandmarks,
-                                onToggleShowLandmarks = viewModel::toggleShowLandmarks,
-                                isAutoAppendEnabled = isAutoAppendEnabled,
-                                onToggleAutoAppend = viewModel::toggleAutoAppend
-                            )
-                        }
-                        else -> {
-                            //StateFlow for camera permission
-                            val lifecycleOwner = LocalLifecycleOwner.current
 
-                            // StateFlow for mediapipe handlandmark
-                            val handBoundingBoxes by viewModel.handBoundingBoxes.collectAsState()
-                            val landmarkResult by viewModel.handLandmarkerResult.collectAsState()
-                            val currentCameraLens by viewModel.currentCameraLens.collectAsState()
+                        val shouldShowTutorial = (showInitialTutorial && hasCameraPermission) || showManualTutorial
+                        if (shouldShowTutorial) {
+                            InitialTutorialScreen(
+                                onDismiss = { doNotShowAgain ->
+                                    if (showInitialTutorial) {
+                                        viewModel.onDismissInitialTutorial(doNotShowAgain)
+                                    }
 
-                            // StateFlow for signs
-                            val predictedSign by viewModel.predictedSign.collectAsState()
-                            val currentConfidence by viewModel.currentConfidence.collectAsState()
-
-                            // StateFlows
-                            val signHistory by viewModel.signHistory.collectAsState()
-                            val isTorchOn by viewModel.isTorchOn.collectAsState()
-                            val showLandmarks by viewModel.showLandmarks.collectAsState()
-                            val errorMessage by viewModel.errorMessage.collectAsState()
-
-                            // States for Practice Mode
-                            val practiceState by viewModel.practiceState.collectAsState()
-                            val currentPracticeLetter by viewModel.currentPracticeLetter.collectAsState()
-                            val practiceScore by viewModel.practiceScore.collectAsState()
-                            val feedback by viewModel.feedback.collectAsState()
-                            val showHintImage by viewModel.showHintImage.collectAsState()
-
-                            SignifyCameraScreen(
-                                hasCameraPermission = hasCameraPermission,
-                                requestCameraPermission = { onResult ->
-                                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    viewModel.onDismissManualTutorial()
                                 },
-                                lifecycleOwner = lifecycleOwner,
-                                setupCamera = viewModel::setupCameraAndHandTracking,
-                                handBoundingBoxes = handBoundingBoxes,
-                                landmarkResult = landmarkResult,
-                                currentCameraLens = currentCameraLens,
-                                onToggleCamera = viewModel::toggleCamera,
-                                predictedSign = predictedSign,
-                                predictedSignConfidence = currentConfidence,
-                                signHistory = signHistory,
-                                isTorchOn = isTorchOn,
-                                showLandmarks = showLandmarks,
-                                errorMessage = errorMessage,
-                                onToggleTorch = viewModel::toggleTorch,
-                                onAppendSignToHistory = viewModel::appendPredictedSignToHistory,
-                                onClearHistory = viewModel::clearHistory,
-                                onDisplaySample = viewModel::onDisplaySample,
-                                onDisplayAbout = viewModel::onDisplayAbout,
-                                onStartPracticeMode = viewModel::onStartPracticeMode,
-                                practiceState = practiceState,
-                                currentPracticeLetter = currentPracticeLetter,
-                                practiceScore = practiceScore,
-                                feedback = feedback,
-                                showHintImage = showHintImage,
-                                onEndPractice = viewModel::endPractice,
-                                onHintRequested = viewModel::onHintRequested,
-                                onPreviousLetter = viewModel::onPreviousLetter,
-                                onNextLetter = viewModel::onNextLetter,
-                                onSpeakSignHistory = viewModel::speakSignHistory,
-                                onSetTtsLanguage = viewModel::setTtsLanguage,
-                                onDeleteLastSign = viewModel::deleteLastSignFromHistory,
-                                onDisplaySettings = viewModel::onDisplaySettings
+                                // do not show again option is only show on the initial launch
+                                showDoNotShowAgainOption = showInitialTutorial
+                            )
+                        }
+
+                        if (showExitDialog) {
+                            ExitConfirmationDialog(
+                                onConfirm = {
+                                    viewModel.onDismissExitDialog()
+                                    finish()
+                                },
+                                onDismiss = viewModel::onDismissExitDialog
                             )
                         }
                     }
