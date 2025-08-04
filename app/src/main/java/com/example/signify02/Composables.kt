@@ -523,7 +523,8 @@ fun HandDetectionOverlay(
                     size.width,
                     size.height,
                     outlineColor = outlineColor,
-                    showLandmarks = showLandmarks
+                    showLandmarks = showLandmarks,
+                    predictedSignConfidence = predictedSignConfidence
                 )
             }
         } else {
@@ -533,20 +534,22 @@ fun HandDetectionOverlay(
                 size.width,
                 size.height,
                 outlineColor = outlineColor,
-                showLandmarks = showLandmarks
+                showLandmarks = showLandmarks,
+                predictedSignConfidence = predictedSignConfidence
             )
         }
 
         // tooltip drawing logic
         val firstHandBox = normalizedBoundingBoxes.firstOrNull()
         if (practiceState != MainViewModel.PracticeState.PRACTICING && predictedSign.isNotEmpty() && firstHandBox != null) {
-            val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()})%"
+            var tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()})%"
             val textPaint = Paint().apply {
                 color = Color.White.toArgb()
                 textSize = 40f
                 textAlign = Paint.Align.CENTER
                 typeface = yrsaTypeface ?: Typeface.DEFAULT_BOLD
             }
+            if (predictedSignConfidence < 0.8f) tooltipText = "Sign Not Recognized"
             val textWidth = textPaint.measureText(tooltipText)
             val textHeight = textPaint.descent() - textPaint.ascent()
             var finalTooltipX = if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
@@ -582,10 +585,12 @@ private fun DrawScope.drawHandDetectionVisuals(
     canvasWidth: Float,
     canvasHeight: Float,
     outlineColor: Color,
-    showLandmarks: Boolean
+    showLandmarks: Boolean,
+    predictedSignConfidence: Float
 ) {
-    val overlayColor: Color = Color.Black.copy(alpha = 0.6f)
+    val overlayColor = if (predictedSignConfidence > 0.8f) Color.Black.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.5f)
     val firstHandBox = normalizedBoundingBoxes.firstOrNull()
+
 
     // Background Dimming Effect
     if (firstHandBox != null) {
@@ -605,7 +610,7 @@ private fun DrawScope.drawHandDetectionVisuals(
             color = outlineColor,
             topLeft = Offset(firstHandBox.left * canvasWidth, firstHandBox.top * canvasHeight),
             size = ComposeSize((firstHandBox.right - firstHandBox.left) * canvasWidth, (firstHandBox.bottom - firstHandBox.top) * canvasHeight),
-            style = Stroke(width = 6f)
+            style = Stroke(width = 10f)
         )
     }
 
