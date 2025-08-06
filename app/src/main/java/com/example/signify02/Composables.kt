@@ -456,7 +456,7 @@ fun RecognizedSignBox(
                 }
             }
 
-            AnimatedVisibility(visible = signHistory.isNotEmpty()) {
+            AnimatedVisibility(visible = signHistory.isNotEmpty()) { //
                 IconButton(
                     onClick = onClearHistory,
                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
