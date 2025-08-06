@@ -83,3 +83,4 @@ private fun SettingSwitch(
         Switch(checked = isChecked, onCheckedChange = onCheckedChange)
     }
 }
+

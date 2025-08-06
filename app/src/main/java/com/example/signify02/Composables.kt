@@ -499,7 +499,7 @@ fun HandDetectionOverlay(
     predictedSign: String,
     predictedSignConfidence: Float,
     showLandmarks: Boolean,
-    practiceState: MainViewModel.PracticeState
+    practiceState: MainViewModel.PracticeState,
 ) {
     val context = LocalContext.current
     val yrsaTypeface = remember(context) {
@@ -514,6 +514,7 @@ fun HandDetectionOverlay(
     } else {
         if (predictedSignConfidence < 0.80f) lowConfidenceColor else highConfidenceColor
     }
+
     Canvas(modifier = modifier) {
         if (currentCameraLens == CameraSelector.LENS_FACING_FRONT) {
             scale(scaleX = -1f, scaleY = 1f, pivot = center) {
@@ -523,7 +524,8 @@ fun HandDetectionOverlay(
                     size.width,
                     size.height,
                     outlineColor = outlineColor,
-                    showLandmarks = showLandmarks
+                    showLandmarks = showLandmarks,
+                    predictedSignConfidence = predictedSignConfidence,
                 )
             }
         } else {
@@ -533,14 +535,22 @@ fun HandDetectionOverlay(
                 size.width,
                 size.height,
                 outlineColor = outlineColor,
-                showLandmarks = showLandmarks
+                showLandmarks = showLandmarks,
+                predictedSignConfidence = predictedSignConfidence,
             )
         }
 
         // tooltip drawing logic
         val firstHandBox = normalizedBoundingBoxes.firstOrNull()
         if (practiceState != MainViewModel.PracticeState.PRACTICING && predictedSign.isNotEmpty() && firstHandBox != null) {
-            val tooltipText = "Sign: $predictedSign (${(predictedSignConfidence * 100).toInt()})%"
+
+            val displayText = if (predictedSignConfidence < 0.80f) {
+                "Unrecognized Sign"
+            } else {
+                predictedSign
+            }
+
+            val tooltipText = "Sign: $displayText (${(predictedSignConfidence * 100).toInt()})%"
             val textPaint = Paint().apply {
                 color = Color.White.toArgb()
                 textSize = 40f
@@ -582,12 +592,14 @@ private fun DrawScope.drawHandDetectionVisuals(
     canvasWidth: Float,
     canvasHeight: Float,
     outlineColor: Color,
+    predictedSignConfidence: Float,
     showLandmarks: Boolean
 ) {
     val overlayColor: Color = Color.Black.copy(alpha = 0.6f)
     val firstHandBox = normalizedBoundingBoxes.firstOrNull()
+    val lowConfidenceColor = Color.Red
 
-    // Background Dimming Effect
+    // Background Dimming Effect (unmodified)
     if (firstHandBox != null) {
         val left = (firstHandBox.left * canvasWidth).coerceIn(0f, canvasWidth)
         val top = (firstHandBox.top * canvasHeight).coerceIn(0f, canvasHeight)
@@ -607,7 +619,32 @@ private fun DrawScope.drawHandDetectionVisuals(
             size = ComposeSize((firstHandBox.right - firstHandBox.left) * canvasWidth, (firstHandBox.bottom - firstHandBox.top) * canvasHeight),
             style = Stroke(width = 6f)
         )
+
+        // Draw 2 diagonal lines to form an "X" if the confidence is low
+        if (predictedSignConfidence < 0.80f) {
+            val startX = firstHandBox.left * canvasWidth
+            val startY = firstHandBox.top * canvasHeight
+            val endX = firstHandBox.right * canvasWidth
+            val endY = firstHandBox.bottom * canvasHeight
+
+            // Draw first diagonal line (top-left to bottom-right)
+            drawLine(
+                color = lowConfidenceColor,
+                start = Offset(startX, startY),
+                end = Offset(endX, endY),
+                strokeWidth = 6f
+            )
+
+            // Draw second diagonal line (top-right to bottom-left)
+            drawLine(
+                color = lowConfidenceColor,
+                start = Offset(endX, startY),
+                end = Offset(startX, endY),
+                strokeWidth = 6f
+            )
+        }
     }
+
 
     // Landmarks and Connections
     if (showLandmarks && landmarkResult != null) {
@@ -619,7 +656,7 @@ private fun DrawScope.drawHandDetectionVisuals(
                     color = Color.White,
                     start = Offset(start.x() * canvasWidth, start.y() * canvasHeight),
                     end = Offset(end.x() * canvasWidth, end.y() * canvasHeight),
-                    strokeWidth = 4f
+                    strokeWidth = 6f
                 )
             }
             handLandmarks.forEach { landmark ->

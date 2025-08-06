@@ -76,7 +76,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- UI Controls State ---
     val signHistory = MutableStateFlow<List<String>>(emptyList())
     val isTorchOn = MutableStateFlow(false)
-    val isAutoAppendEnabled = MutableStateFlow(getPreference(KEY_AUTO_APPEND, true))
+    val isAutoAppendEnabled = MutableStateFlow(getPreference(KEY_AUTO_APPEND, false))
 
     // --- Navigation & Dialog State ---
     val showDisplaySample = MutableStateFlow(false)
@@ -126,7 +126,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             landmarkInterpreter = Interpreter(model, Interpreter.Options())
             // interpret the models raw output
             labels = application.assets.open("ASL_Labels.txt").bufferedReader().readLines().filter { it.isNotBlank() }
-
 
             alphabet = AllSigns.map { it.id }
 
@@ -334,7 +333,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
     private fun runLandmarkInference(normalizedLandmarks: FloatArray) {
         if (landmarkInterpreter == null || labels.isEmpty()) return
 
